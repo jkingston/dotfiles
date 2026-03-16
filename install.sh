@@ -135,9 +135,10 @@ mount --mkdir "$PART1" /mnt/boot
 # --- Base packages ---
 BASE_PACKAGES=(
     base linux linux-firmware "$MICROCODE"
+    mkinitcpio iptables-nft
     networkmanager bluez bluez-utils
     git neovim sudo base-devel chezmoi
-    pipewire pipewire-alsa pipewire-pulse wireplumber
+    pipewire pipewire-alsa pipewire-pulse pipewire-jack wireplumber
     # Desktop
     hyprland xdg-desktop-portal-hyprland xdg-desktop-portal-gtk
     uwsm waybar mako hyprlock hypridle swww
@@ -153,7 +154,7 @@ BASE_PACKAGES=(
     swayosd bluetui pulsemixer rofi-calc hyprsunset
     lazygit lazydocker
     # Fonts
-    ttf-jetbrains-mono-nerd ttf-cascadia-code-nerd
+    ttf-jetbrains-mono-nerd ttf-cascadia-code-nerd noto-fonts
     # Misc
     ufw pacman-contrib bc libnotify
 )
@@ -163,7 +164,7 @@ read -ra EXTRAS <<< "$EXTRA_PACKAGES"
 BASE_PACKAGES+=("${EXTRAS[@]}")
 
 info "Installing base system (this will take a while)..."
-pacstrap -K /mnt "${BASE_PACKAGES[@]}"
+pacstrap -K --noconfirm /mnt "${BASE_PACKAGES[@]}"
 
 # --- Generate fstab ---
 info "Generating fstab..."
