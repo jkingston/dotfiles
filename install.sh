@@ -164,7 +164,7 @@ read -ra EXTRAS <<< "$EXTRA_PACKAGES"
 BASE_PACKAGES+=("${EXTRAS[@]}")
 
 info "Installing base system (this will take a while)..."
-pacstrap -K --noconfirm /mnt "${BASE_PACKAGES[@]}"
+pacstrap -K /mnt "${BASE_PACKAGES[@]}"
 
 # --- Generate fstab ---
 info "Generating fstab..."
