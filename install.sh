@@ -304,9 +304,10 @@ cat > "/mnt/home/$USERNAME/.config/chezmoi/chezmoi.toml" <<CHEZCONF
     gpu = "$GPU"
 CHEZCONF
 
-# Clone dotfiles and apply
+# Clone dotfiles and apply (clone manually to avoid TTY prompt from chezmoi init)
 arch-chroot /mnt su - "$USERNAME" -c "
-chezmoi init --apply https://github.com/jkingston/dotfiles.git
+git clone https://github.com/jkingston/dotfiles.git ~/.local/share/chezmoi
+chezmoi apply
 "
 
 # Fix ownership
