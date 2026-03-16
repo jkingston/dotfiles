@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -e
+echo "=== Arch Linux System Update ==="
+echo ""
+echo "Updating official packages..."
+sudo pacman -Syu
+if command -v yay &>/dev/null; then
+  echo ""
+  echo "Updating AUR packages..."
+  yay -Sua
+fi
+rm -f ~/.cache/arch-updates/last-check
+pkill -RTMIN+12 waybar || true
+echo ""
+echo "Update complete!"
+read -p "Press Enter to close..."

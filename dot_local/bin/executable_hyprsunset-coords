@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+TZ=$(timedatectl show --property=Timezone --value 2>/dev/null || cat /etc/timezone 2>/dev/null || echo "Europe/London")
+case "$TZ" in
+  Europe/London) echo "51.51 -0.13" ;;
+  Europe/Berlin|Europe/Paris) echo "48.86 2.35" ;;
+  America/New_York) echo "40.71 -74.01" ;;
+  America/Los_Angeles) echo "34.05 -118.24" ;;
+  *) echo "51.51 -0.13" ;;
+esac

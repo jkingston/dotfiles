@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+CONFIG_DIR="$HOME/.config/hyprsunset"
+TEMP=$(cat "$CONFIG_DIR/temperature" 2>/dev/null || echo "3500")
+STATE_FILE="/tmp/hyprsunset-night"
+AUTO_FILE="/tmp/hyprsunset-auto"
+
+if [ -f "$AUTO_FILE" ]; then
+  if [ -f "$STATE_FILE" ]; then MODE="on"; else MODE="off"; fi
+else
+  MODE="auto"
+fi
+
+if [ -f "$STATE_FILE" ]; then
+  ICON="󱩌"; STATE="ON (${TEMP}K)"
+else
+  ICON="󰹏"; STATE="OFF"
+fi
+
+printf '{"text": "%s", "tooltip": "Night light: %s\\nMode: %s"}' "$ICON" "$STATE" "$MODE"

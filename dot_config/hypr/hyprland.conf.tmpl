@@ -1,0 +1,249 @@
+# Monitor
+{{ if eq .monitor_name "" -}}
+monitor = , preferred, auto, {{ .monitor_scale }}
+{{ else -}}
+monitor = {{ .monitor_name }}, preferred, auto, {{ .monitor_scale }}
+{{ end -}}
+
+xwayland {
+    force_zero_scaling = true
+}
+
+# Environment
+env = XCURSOR_SIZE,24
+env = HYPRCURSOR_SIZE,24
+env = GDK_BACKEND,wayland,x11,*
+env = QT_QPA_PLATFORM,wayland;xcb
+env = QT_AUTO_SCREEN_SCALE_FACTOR,1
+env = ELECTRON_OZONE_PLATFORM_HINT,auto
+{{- if eq .gpu "intel" }}
+env = LIBVA_DRIVER_NAME,iHD
+{{- end }}
+
+# Input
+input {
+    kb_layout = gb
+    touchpad {
+        natural_scroll = true
+        clickfinger_behavior = true
+        tap-to-click = true
+    }
+}
+
+gestures {
+    workspace_swipe = true
+    workspace_swipe_forever = true
+}
+
+$mod = SUPER
+
+# Autostart
+exec-once = xrdb -merge ~/.Xresources
+exec-once = swayosd-server
+exec-once = wl-paste --watch cliphist store
+exec-once = wl-paste --type image --watch cliphist store
+{{- if not .is_vm }}
+exec-once = hypridle
+{{- end }}
+exec-once = swww-daemon && ~/.local/bin/wallpaper-random
+
+# App launchers
+bind = $mod, RETURN, exec, ghostty
+bind = $mod, SPACE, exec, rofi -show drun
+bind = $mod SHIFT, B, exec, librewolf
+bind = $mod SHIFT, N, exec, ghostty -e nvim
+bind = $mod SHIFT, T, exec, ghostty -e btop
+bind = $mod SHIFT, F, exec, nautilus
+bind = $mod SHIFT, D, exec, ghostty -e lazydocker
+bind = $mod CTRL, S, exec, localsend
+
+# Window management
+bind = $mod, W, killactive,
+bind = CTRL ALT, DELETE, exec, hyprctl dispatch closewindow address:*
+bind = $mod, T, togglefloating,
+bind = $mod, O, pin,
+bind = $mod, F, fullscreen, 0
+bind = $mod ALT, F, fullscreen, 1
+bind = $mod, G, togglegroup,
+bind = $mod ALT, G, moveoutofgroup,
+bind = $mod ALT, TAB, changegroupactive,
+
+# Focus
+bind = $mod, LEFT, movefocus, l
+bind = $mod, RIGHT, movefocus, r
+bind = $mod, UP, movefocus, u
+bind = $mod, DOWN, movefocus, d
+bind = $mod, H, movefocus, l
+bind = $mod, L, movefocus, r
+bind = $mod, K, movefocus, u
+bind = $mod, J, movefocus, d
+
+# Swap
+bind = $mod SHIFT, LEFT, swapwindow, l
+bind = $mod SHIFT, RIGHT, swapwindow, r
+bind = $mod SHIFT, UP, swapwindow, u
+bind = $mod SHIFT, DOWN, swapwindow, d
+bind = $mod SHIFT, H, swapwindow, l
+bind = $mod SHIFT, L, swapwindow, r
+bind = $mod SHIFT, K, swapwindow, u
+bind = $mod SHIFT, J, swapwindow, d
+
+# Resize
+bind = $mod, EQUAL, resizeactive, -100 0
+bind = $mod, MINUS, resizeactive, 100 0
+bind = $mod SHIFT, EQUAL, resizeactive, 0 100
+bind = $mod SHIFT, MINUS, resizeactive, 0 -100
+
+# Workspaces
+bind = $mod, 1, workspace, 1
+bind = $mod, 2, workspace, 2
+bind = $mod, 3, workspace, 3
+bind = $mod, 4, workspace, 4
+bind = $mod, 5, workspace, 5
+bind = $mod, 6, workspace, 6
+bind = $mod, 7, workspace, 7
+bind = $mod, 8, workspace, 8
+bind = $mod, 9, workspace, 9
+bind = $mod, 0, workspace, 10
+
+bind = $mod SHIFT, 1, movetoworkspace, 1
+bind = $mod SHIFT, 2, movetoworkspace, 2
+bind = $mod SHIFT, 3, movetoworkspace, 3
+bind = $mod SHIFT, 4, movetoworkspace, 4
+bind = $mod SHIFT, 5, movetoworkspace, 5
+bind = $mod SHIFT, 6, movetoworkspace, 6
+bind = $mod SHIFT, 7, movetoworkspace, 7
+bind = $mod SHIFT, 8, movetoworkspace, 8
+bind = $mod SHIFT, 9, movetoworkspace, 9
+bind = $mod SHIFT, 0, movetoworkspace, 10
+
+bind = $mod, TAB, workspace, e+1
+bind = $mod SHIFT, TAB, workspace, e-1
+bind = $mod CTRL, TAB, workspace, previous
+
+bind = $mod, S, togglespecialworkspace, magic
+bind = $mod ALT, S, movetoworkspace, special:magic
+
+# Screenshots & tools
+bind = , Print, exec, grimblast edit area
+bind = SHIFT, Print, exec, grimblast copy screen
+bind = $mod, Print, exec, hyprpicker -a
+
+# Clipboard
+bind = $mod, C, exec, wl-copy
+bind = $mod, V, exec, wl-paste
+bind = $mod CTRL, V, exec, ~/.local/bin/rofi-clipboard
+
+# Utilities
+bind = $mod CTRL, I, exec, hyprlock
+bind = $mod SHIFT, SPACE, exec, pkill -SIGUSR1 waybar
+bind = $mod SHIFT, O, exec, hyprctl --batch 'dispatch setprop active opaque toggle; dispatch setprop active noblur toggle'
+bind = $mod CTRL, N, exec, makoctl dismiss
+bind = $mod CTRL SHIFT, N, exec, makoctl dismiss -a
+bind = $mod CTRL, E, exec, rofimoji
+bind = $mod CTRL, W, exec, waypaper
+bind = $mod ALT, W, exec, ~/.local/bin/wallpaper-random
+bind = $mod, slash, exec, ~/.local/bin/keybind-help
+bind = $mod, ESCAPE, exec, rofi -show power-menu -modi power-menu:rofi-power-menu
+
+# Mouse
+bind = $mod, MOUSE_DOWN, workspace, e+1
+bind = $mod, MOUSE_UP, workspace, e-1
+bindm = $mod, mouse:272, movewindow
+bindm = $mod, mouse:273, resizewindow
+
+# Media keys
+bindel = , XF86AudioRaiseVolume, exec, swayosd-client --output-volume raise
+bindel = , XF86AudioLowerVolume, exec, swayosd-client --output-volume lower
+bindel = , XF86AudioMute, exec, swayosd-client --output-volume mute-toggle
+bindel = , XF86AudioMicMute, exec, swayosd-client --input-volume mute-toggle
+bindel = , XF86MonBrightnessUp, exec, swayosd-client --brightness raise
+bindel = , XF86MonBrightnessDown, exec, swayosd-client --brightness lower
+bindl = , XF86AudioNext, exec, playerctl next
+bindl = , XF86AudioPrev, exec, playerctl previous
+bindl = , XF86AudioPlay, exec, playerctl play-pause
+bindl = , XF86AudioPause, exec, playerctl play-pause
+
+{{- if .is_laptop }}
+# Lid switch
+bindl = , switch:on:Lid Switch, exec, pidof hyprlock || hyprlock
+bindl = , switch:off:Lid Switch, exec, hyprctl dispatch dpms on
+{{- end }}
+
+# Appearance
+general {
+    gaps_in = {{ .gaps_inner }}
+    gaps_out = {{ .gaps_outer }}
+    border_size = {{ .border_size }}
+}
+
+decoration {
+    rounding = 0
+    active_opacity = 0.95
+    inactive_opacity = 0.88
+    fullscreen_opacity = 1.0
+
+    blur {
+        enabled = true
+        size = 6
+        passes = 4
+        ignore_opacity = true
+        xray = false
+        special = true
+        new_optimizations = true
+        noise = 0.02
+        contrast = 0.9
+        brightness = 0.8
+        popups = true
+        popups_ignorealpha = 0.6
+    }
+
+    shadow {
+        enabled = true
+        range = 8
+        render_power = 3
+    }
+}
+
+animations {
+    enabled = true
+    bezier = smooth, 0.25, 0.1, 0.25, 1.0
+    bezier = smoothOut, 0.0, 0.0, 0.2, 1.0
+    bezier = smoothIn, 0.4, 0.0, 1.0, 1.0
+    bezier = liner, 1, 1, 1, 1
+    animation = windows, 1, 6, smooth, slide
+    animation = windowsIn, 1, 6, smoothOut, slide
+    animation = windowsOut, 1, 5, smoothIn, slide
+    animation = windowsMove, 1, 5, smooth, slide
+    animation = border, 1, 1, liner
+    animation = fade, 1, 10, default
+    animation = workspaces, 1, 5, smooth
+}
+
+misc {
+    focus_on_activate = true
+}
+
+# Window rules
+windowrulev2 = float, class:^(com\.floating\.tui)$
+windowrulev2 = center, class:^(com\.floating\.tui)$
+windowrulev2 = size 800 600, class:^(com\.floating\.tui)$
+windowrulev2 = float, initialClass:^(com\.floating\.tui)$
+windowrulev2 = center, initialClass:^(com\.floating\.tui)$
+windowrulev2 = size 800 600, initialClass:^(com\.floating\.tui)$
+windowrulev2 = float, class:^(waypaper)$
+windowrulev2 = center, class:^(waypaper)$
+windowrulev2 = size 900 700, class:^(waypaper)$
+windowrulev2 = opacity 1.0 override 1.0 override, class:^(mpv)$
+windowrulev2 = opacity 1.0 override 1.0 override, class:^(vlc)$
+windowrulev2 = opacity 1.0 override 1.0 override, class:^(com.obsproject.Studio)$
+windowrulev2 = opacity 1.0 override 1.0 override, class:^(zoom)$
+windowrulev2 = opacity 1.0 override 1.0 override, class:^(steam_app_.*)$
+windowrulev2 = opacity 1.0 override 1.0 override, fullscreen:1
+windowrulev2 = opacity 0.92 0.85, class:^(ghostty)$
+windowrulev2 = opacity 0.95 0.9, class:^(org.gnome.Nautilus)$
+
+layerrule = blur, rofi
+layerrule = blur, waybar
+layerrule = ignorezero, rofi
+layerrule = ignorezero, waybar

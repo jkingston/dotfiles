@@ -1,0 +1,60 @@
+@define-color foreground #cdd6f4;
+@define-color background #181824;
+
+* {
+  background-color: transparent;
+  color: @foreground;
+  border: none;
+  border-radius: 0;
+  min-height: 0;
+  font-family: 'JetBrainsMono Nerd Font';
+  font-size: 12px;
+}
+
+window#waybar {
+  background-color: alpha(@background, 0.7);
+}
+
+.modules-left { margin-left: 8px; }
+.modules-right { margin-right: 8px; }
+
+#workspaces button {
+  all: initial;
+  font-family: 'JetBrainsMono Nerd Font';
+  background-color: transparent;
+  padding: 0 6px;
+  margin: 0 1.5px;
+  min-width: 9px;
+  color: @foreground;
+}
+
+#workspaces button.empty { opacity: 0.5; }
+#workspaces button.active { color: #89b4fa; }
+
+#battery, #pulseaudio, #power-profiles-daemon, #custom-launcher,
+#custom-nightlight, #custom-sysmon, #custom-updates, #idle_inhibitor,
+#backlight, #privacy {
+  min-width: 12px;
+  margin: 0 7.5px;
+}
+
+#custom-updates.has-updates { color: #f9e2af; }
+#custom-updates.checking { opacity: 0.5; }
+#custom-updates.dirty { color: #fab387; }
+#custom-updates.disabled { opacity: 0.5; }
+#custom-updates.error { color: #f38ba8; }
+
+#tray { margin-right: 16px; }
+#bluetooth { min-width: 12px; margin-right: 17px; }
+#network { min-width: 12px; margin-right: 13px; }
+#clock { margin-left: 8.75px; }
+
+#battery.warning { color: #f9e2af; }
+#battery.critical { color: #f38ba8; }
+#idle_inhibitor.activated { color: #f9e2af; }
+
+tooltip {
+  padding: 2px;
+  background-color: alpha(@background, 0.85);
+  color: @foreground;
+}

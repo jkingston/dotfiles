@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+WALLPAPER_DIR="$HOME/Pictures/Wallpapers"
+selected=$(find -L "$WALLPAPER_DIR" -type f \( -name "*.jpg" -o -name "*.jpeg" -o -name "*.png" -o -name "*.webp" \) 2>/dev/null | shuf -n1)
+if [ -n "$selected" ]; then
+  swww img "$selected" \
+    --transition-type grow \
+    --transition-pos "$(hyprctl cursorpos)" \
+    --transition-duration 0.7 \
+    --transition-fps 60 \
+    --transition-bezier .43,1.19,1,.4
+fi

@@ -1,0 +1,145 @@
+{
+  "layer": "top",
+  "position": "top",
+  "height": 26,
+  "spacing": 0,
+  "modules-left": ["custom/launcher", "hyprland/workspaces"],
+  "modules-center": ["clock", "custom/updates"],
+  "modules-right": [
+    "privacy",
+    "tray",
+    "bluetooth",
+    "network",
+    "pulseaudio",
+    "custom/sysmon",
+{{- if .is_laptop }}
+    "power-profiles-daemon",
+{{- end }}
+    "idle_inhibitor",
+    "custom/nightlight"
+{{- if .is_laptop }},
+    "backlight",
+    "battery"
+{{- end }}
+  ],
+  "custom/launcher": {
+    "format": "󱄅",
+    "on-click": "rofi -show drun",
+    "tooltip": false
+  },
+  "hyprland/workspaces": {
+    "on-click": "activate",
+    "format": "{icon}",
+    "format-icons": {
+      "1": "1", "2": "2", "3": "3", "4": "4", "5": "5",
+      "6": "6", "7": "7", "8": "8", "9": "9", "10": "0",
+      "active": "󱓻", "default": ""
+    },
+    "persistent-workspaces": { "*": 5 }
+  },
+  "clock": {
+    "format": "{:%A %H:%M}",
+    "format-alt": "{:%d %B W%V %Y}",
+    "tooltip": false
+  },
+  "custom/updates": {
+    "exec": "~/.local/bin/arch-updates-check",
+    "signal": 12,
+    "on-click": "ghostty --class=com.floating.tui -e ~/.local/bin/arch-update",
+    "on-click-right": "~/.local/bin/arch-update-menu",
+    "interval": 300,
+    "tooltip": true,
+    "return-type": "json"
+  },
+  "privacy": {
+    "icon-spacing": 4,
+    "icon-size": 18,
+    "transition-duration": 250,
+    "modules": [
+      { "type": "screenshare", "tooltip": true, "tooltip-icon-size": 24 },
+      { "type": "audio-in", "tooltip": true, "tooltip-icon-size": 24 }
+    ]
+  },
+  "bluetooth": {
+    "format": "󰂯",
+    "format-disabled": "󰂲",
+    "format-connected": "󰂱",
+    "tooltip-format": "Devices: {num_connections}",
+    "on-click": "ghostty --class=com.floating.tui -e bluetui"
+  },
+  "network": {
+    "format-icons": ["󰤯", "󰤟", "󰤢", "󰤥", "󰤨"],
+    "format": "{icon}",
+    "format-wifi": "{icon}",
+    "format-ethernet": "󰀂",
+    "format-disconnected": "󰤮",
+    "tooltip-format-wifi": "{essid} ({frequency}GHz {signalStrength}%)\n⇣{bandwidthDownBytes} ⇡{bandwidthUpBytes}",
+    "tooltip-format-ethernet": "{ifname}: {ipaddr}\n⇣{bandwidthDownBytes} ⇡{bandwidthUpBytes}",
+    "tooltip-format-disconnected": "Disconnected",
+    "interval": 3,
+    "on-click": "ghostty --class=com.floating.tui -e nmtui"
+  },
+  "pulseaudio": {
+    "format": "{icon}",
+    "format-muted": "󰝟",
+    "format-icons": { "default": ["󰕿", "󰖀", "󰕾"] },
+    "tooltip-format": "Volume: {volume}%",
+    "scroll-step": 5,
+    "on-click": "ghostty --class=com.floating.tui -e pulsemixer",
+    "on-click-right": "wpctl set-mute @DEFAULT_SINK@ toggle"
+  },
+  "custom/sysmon": {
+    "exec": "~/.local/bin/waybar-sysmon",
+    "return-type": "json",
+    "interval": 5,
+    "on-click": "ghostty -e btop"
+  },
+  "tray": {
+    "icon-size": 16,
+    "spacing": 8,
+    "show-passive-items": true
+  },
+  "power-profiles-daemon": {
+    "format": "{icon}",
+    "tooltip-format": "Profile: {profile}",
+    "format-icons": {
+      "default": "󰗑", "performance": "󰓅", "balanced": "󰾅", "power-saver": "󰾆"
+    }
+  },
+  "idle_inhibitor": {
+    "format": "{icon}",
+    "format-icons": { "activated": "󰅶", "deactivated": "󰾪" },
+    "tooltip-format-activated": "Idle prevention: on",
+    "tooltip-format-deactivated": "Idle prevention: off"
+  },
+  "custom/nightlight": {
+    "format": "{}",
+    "return-type": "json",
+    "exec": "~/.local/bin/hyprsunset-status",
+    "interval": 60,
+    "signal": 10,
+    "on-click": "~/.local/bin/hyprsunset-toggle",
+    "on-click-right": "~/.local/bin/hyprsunset-settings"
+  },
+  "backlight": {
+    "format": "{icon}",
+    "format-icons": ["󰃞", "󰃟", "󰃠"],
+    "tooltip-format": "Brightness: {percent}%",
+    "on-scroll-up": "swayosd-client --brightness raise",
+    "on-scroll-down": "swayosd-client --brightness lower"
+  },
+  "battery": {
+    "format": "{icon}",
+    "format-charging": "{icon}",
+    "format-plugged": "",
+    "format-icons": {
+      "charging": ["󰢜", "󰂆", "󰂇", "󰂈", "󰢝", "󰂉", "󰢞", "󰂊", "󰂋", "󰂅"],
+      "default": ["󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"]
+    },
+    "format-full": "󰂅",
+    "tooltip-format": "{power:.1f}W {capacity}%",
+    "interval": 5,
+    "on-click": "rofi -show power-menu -modi power-menu:rofi-power-menu",
+    "states": { "warning": 20, "critical": 10 }
+  }
+}

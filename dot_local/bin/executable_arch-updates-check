@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+CACHE_DIR="$HOME/.cache/arch-updates"
+CACHE_FILE="$CACHE_DIR/status.json"
+LAST_CHECK="$CACHE_DIR/last-check"
+LOCK_FILE="$CACHE_DIR/check.lock"
+CHECK_INTERVAL=14400
+
+mkdir -p "$CACHE_DIR"
+
+if [ -f "$CACHE_DIR/disabled" ]; then
+  echo '{"text": "󰏤", "tooltip": "Auto-check disabled", "class": "disabled"}'
+  exit 0
+fi
+
+if [ -f "$LOCK_FILE" ]; then
+  [ -f "$CACHE_FILE" ] && cat "$CACHE_FILE" || echo '{"text": "󰑓", "tooltip": "Checking...", "class": "checking"}'
+  exit 0
+fi
+
+if [ -f "$LAST_CHECK" ] && [ -f "$CACHE_FILE" ]; then
+  AGE=$(($(date +%s) - $(cat "$LAST_CHECK")))
+  [ $AGE -lt $CHECK_INTERVAL ] && cat "$CACHE_FILE" && exit 0
+fi
+
+exec 9>"$LOCK_FILE"
+flock -n 9 || { [ -f "$CACHE_FILE" ] && cat "$CACHE_FILE"; exit 0; }
+trap "rm -f $LOCK_FILE" EXIT
+
+checkupdates 2>/dev/null > "$CACHE_DIR/official.txt" || true
+if command -v yay &>/dev/null; then
+  yay -Qua 2>/dev/null > "$CACHE_DIR/aur.txt" || true
+else
+  > "$CACHE_DIR/aur.txt"
+fi
+
+OFFICIAL=$(wc -l < "$CACHE_DIR/official.txt" | tr -d ' ')
+AUR=$(wc -l < "$CACHE_DIR/aur.txt" | tr -d ' ')
+TOTAL=$((OFFICIAL + AUR))
+
+if [ "$TOTAL" -gt 0 ]; then
+  TOOLTIP="${OFFICIAL} official, ${AUR} AUR"
+  printf '{"text": "󰚰 %d", "tooltip": "%s updates available\\n%s", "class": "has-updates"}\n' "$TOTAL" "$TOTAL" "$TOOLTIP" | tee "$CACHE_FILE"
+else
+  echo '{"text": "󰄬", "tooltip": "System up to date", "class": "current"}' | tee "$CACHE_FILE"
+fi
+date +%s > "$LAST_CHECK"

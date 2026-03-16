@@ -1,0 +1,15 @@
+[user]
+	name = Jack Kingston
+	email = j.kngstn@gmail.com
+[init]
+	defaultBranch = main
+[pull]
+	rebase = false
+[core]
+	pager = delta
+[delta]
+	navigate = true
+[credential "https://github.com"]
+	helper = !gh auth git-credential
+[credential "https://gist.github.com"]
+	helper = !gh auth git-credential

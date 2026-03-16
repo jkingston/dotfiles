@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+CONFIG_DIR="$HOME/.config/hyprsunset"
+mkdir -p "$CONFIG_DIR"
+TEMP=$(cat "$CONFIG_DIR/temperature" 2>/dev/null || echo "3500")
+STATE_FILE="/tmp/hyprsunset-night"
+AUTO_FILE="/tmp/hyprsunset-auto"
+
+if [ ! -f "$AUTO_FILE" ]; then
+  # Auto -> On
+  touch "$AUTO_FILE"
+  touch "$STATE_FILE"
+  pkill hyprsunset 2>/dev/null
+  hyprsunset -t "$TEMP" &
+  notify-send -t 1500 "Night Light: On"
+elif [ -f "$STATE_FILE" ]; then
+  # On -> Off
+  rm "$STATE_FILE"
+  pkill hyprsunset 2>/dev/null
+  notify-send -t 1500 "Night Light: Off"
+else
+  # Off -> Auto
+  rm "$AUTO_FILE"
+  ~/.local/bin/hyprsunset-apply
+  notify-send -t 1500 "Night Light: Auto"
+fi
+
+pkill -SIGRTMIN+10 waybar 2>/dev/null || true

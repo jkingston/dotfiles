@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+CONFIG_DIR="$HOME/.config/hyprsunset"
+mkdir -p "$CONFIG_DIR"
+TEMP=$(cat "$CONFIG_DIR/temperature" 2>/dev/null || echo "3500")
+STATE_FILE="/tmp/hyprsunset-night"
+AUTO_FILE="/tmp/hyprsunset-auto"
+
+# If manual override active, do nothing
+[ -f "$AUTO_FILE" ] && exit 0
+
+HOUR=$(date +%H)
+
+if [ "$HOUR" -ge 7 ] && [ "$HOUR" -lt 19 ]; then
+  # Daytime
+  if [ -f "$STATE_FILE" ]; then
+    rm -f "$STATE_FILE"
+    pkill hyprsunset 2>/dev/null
+    pkill -SIGRTMIN+10 waybar 2>/dev/null || true
+  fi
+else
+  # Nighttime
+  if [ ! -f "$STATE_FILE" ]; then
+    touch "$STATE_FILE"
+    hyprsunset -t "$TEMP" &
+    pkill -SIGRTMIN+10 waybar 2>/dev/null || true
+  fi
+fi

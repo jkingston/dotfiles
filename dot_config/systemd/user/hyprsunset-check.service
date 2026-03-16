@@ -1,0 +1,6 @@
+[Unit]
+Description=Check and apply nightlight state
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/hyprsunset-apply

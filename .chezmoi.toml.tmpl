@@ -1,0 +1,10 @@
+[data]
+    hostname = {{ promptString "hostname" | quote }}
+    is_laptop = {{ promptBool "is_laptop" }}
+    is_vm = {{ promptBool "is_vm" }}
+    monitor_name = {{ promptString "monitor_name (e.g. eDP-1, DP-1)" | quote }}
+    monitor_scale = {{ promptString "monitor_scale (e.g. 1.25)" | quote }}
+    gaps_inner = {{ promptInt "gaps_inner" }}
+    gaps_outer = {{ promptInt "gaps_outer" }}
+    border_size = {{ promptInt "border_size" }}
+    gpu = {{ promptString "gpu (intel, amd, or none)" | quote }}

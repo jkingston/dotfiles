@@ -1,0 +1,20 @@
+configuration {
+    modi: "drun,run,calc";
+    show-icons: true;
+    drun-display-format: "{name}";
+    icon-theme: "Adwaita";
+    terminal: "ghostty";
+}
+
+window {
+    width: 600px;
+    border: 2px;
+    border-radius: 0px;
+    padding: 20px;
+}
+
+mainbox { spacing: 10px; }
+inputbar { padding: 10px; border-radius: 0px; }
+listview { lines: 8; spacing: 5px; }
+element { padding: 10px; border-radius: 0px; }
+element-icon { size: 24px; }

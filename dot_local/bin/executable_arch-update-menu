@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+CHOICE=$(echo -e "Check now\nToggle auto-check" | rofi -dmenu -p "Updates")
+case "$CHOICE" in
+  "Check now")
+    rm -f ~/.cache/arch-updates/last-check
+    pkill -RTMIN+12 waybar
+    notify-send -t 2000 "Checking for updates..."
+    ;;
+  "Toggle auto-check")
+    if [ -f ~/.cache/arch-updates/disabled ]; then
+      rm ~/.cache/arch-updates/disabled
+      notify-send -t 2000 "Update checking enabled"
+    else
+      mkdir -p ~/.cache/arch-updates
+      touch ~/.cache/arch-updates/disabled
+      notify-send -t 2000 "Update checking disabled"
+    fi
+    pkill -RTMIN+12 waybar
+    ;;
+esac

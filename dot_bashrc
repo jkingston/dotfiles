@@ -1,0 +1,40 @@
+# History
+HISTCONTROL=ignoreboth
+HISTSIZE=32768
+HISTFILESIZE=32768
+
+# Environment
+export EDITOR="nvim"
+export ELECTRON_OZONE_PLATFORM_HINT=auto
+export STARSHIP_CONFIG="$HOME/.config/starship/starship.toml"
+
+# Aliases - Navigation
+alias ..='cd ..'
+alias ...='cd ../..'
+alias ....='cd ../../..'
+
+# Aliases - Git
+alias gst='git status'
+alias gl='git pull'
+alias gp='git push'
+
+# Aliases - Tools
+alias ff="fzf --preview 'bat --color=always {}'"
+alias lg='lazygit'
+alias ld='lazydocker'
+alias cat='bat'
+alias ls='eza --icons=auto --git'
+alias ll='eza --icons=auto --git -l'
+alias la='eza --icons=auto --git -la'
+alias lt='eza --icons=auto --git --tree'
+
+# Tool init
+eval "$(starship init bash)"
+eval "$(fzf --bash)"
+eval "$(zoxide init bash)"
+eval "$(direnv hook bash)"
+
+# Bash completion
+if [ -f /usr/share/bash-completion/bash_completion ]; then
+  . /usr/share/bash-completion/bash_completion
+fi

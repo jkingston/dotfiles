@@ -1,0 +1,6 @@
+{{- $dpi := 96 -}}
+{{- if eq .monitor_scale "1.25" }}{{ $dpi = 120 }}{{ end -}}
+{{- if eq .monitor_scale "1.5" }}{{ $dpi = 144 }}{{ end -}}
+{{- if eq .monitor_scale "1.66666666" }}{{ $dpi = 160 }}{{ end -}}
+{{- if eq .monitor_scale "2.0" }}{{ $dpi = 192 }}{{ end -}}
+Xft.dpi: {{ $dpi }}
