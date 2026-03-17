@@ -31,9 +31,10 @@ input {
 }
 
 gestures {
-    workspace_swipe = true
     workspace_swipe_forever = true
 }
+
+gesture = 3, horizontal, workspace
 
 $mod = SUPER
 
@@ -45,6 +46,7 @@ exec-once = wl-paste --type image --watch cliphist store
 {{- if not .is_vm }}
 exec-once = hypridle
 {{- end }}
+exec-once = hyprsunset
 exec-once = swww-daemon && ~/.local/bin/wallpaper-random
 
 # App launchers
@@ -225,23 +227,23 @@ misc {
 }
 
 # Window rules
-windowrulev2 = float, class:^(com\.floating\.tui)$
-windowrulev2 = center, class:^(com\.floating\.tui)$
-windowrulev2 = size 800 600, class:^(com\.floating\.tui)$
-windowrulev2 = float, initialClass:^(com\.floating\.tui)$
-windowrulev2 = center, initialClass:^(com\.floating\.tui)$
-windowrulev2 = size 800 600, initialClass:^(com\.floating\.tui)$
-windowrulev2 = float, class:^(waypaper)$
-windowrulev2 = center, class:^(waypaper)$
-windowrulev2 = size 900 700, class:^(waypaper)$
-windowrulev2 = opacity 1.0 override 1.0 override, class:^(mpv)$
-windowrulev2 = opacity 1.0 override 1.0 override, class:^(vlc)$
-windowrulev2 = opacity 1.0 override 1.0 override, class:^(com.obsproject.Studio)$
-windowrulev2 = opacity 1.0 override 1.0 override, class:^(zoom)$
-windowrulev2 = opacity 1.0 override 1.0 override, class:^(steam_app_.*)$
-windowrulev2 = opacity 1.0 override 1.0 override, fullscreen:1
-windowrulev2 = opacity 0.92 0.85, class:^(ghostty)$
-windowrulev2 = opacity 0.95 0.9, class:^(org.gnome.Nautilus)$
+windowrule = float, class:^(com\.floating\.tui)$
+windowrule = center, class:^(com\.floating\.tui)$
+windowrule = size 800 600, class:^(com\.floating\.tui)$
+windowrule = float, initialClass:^(com\.floating\.tui)$
+windowrule = center, initialClass:^(com\.floating\.tui)$
+windowrule = size 800 600, initialClass:^(com\.floating\.tui)$
+windowrule = float, class:^(waypaper)$
+windowrule = center, class:^(waypaper)$
+windowrule = size 900 700, class:^(waypaper)$
+windowrule = opacity 1.0 override 1.0 override, class:^(mpv)$
+windowrule = opacity 1.0 override 1.0 override, class:^(vlc)$
+windowrule = opacity 1.0 override 1.0 override, class:^(com.obsproject.Studio)$
+windowrule = opacity 1.0 override 1.0 override, class:^(zoom)$
+windowrule = opacity 1.0 override 1.0 override, class:^(steam_app_.*)$
+windowrule = opacity 1.0 override 1.0 override, fullscreen:1
+windowrule = opacity 0.92 0.85, class:^(ghostty)$
+windowrule = opacity 0.95 0.9, class:^(org.gnome.Nautilus)$
 
 layerrule = blur, rofi
 layerrule = blur, waybar
