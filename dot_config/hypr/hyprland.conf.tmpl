@@ -30,10 +30,6 @@ input {
     }
 }
 
-gestures {
-    workspace_swipe_forever = true
-}
-
 gesture = 3, horizontal, workspace
 
 $mod = SUPER
@@ -224,28 +220,29 @@ animations {
 
 misc {
     focus_on_activate = true
+    font_family = JetBrainsMono Nerd Font
 }
 
 # Window rules
-windowrule = float, class:^(com\.floating\.tui)$
-windowrule = center, class:^(com\.floating\.tui)$
-windowrule = size 800 600, class:^(com\.floating\.tui)$
-windowrule = float, initialClass:^(com\.floating\.tui)$
-windowrule = center, initialClass:^(com\.floating\.tui)$
-windowrule = size 800 600, initialClass:^(com\.floating\.tui)$
-windowrule = float, class:^(waypaper)$
-windowrule = center, class:^(waypaper)$
-windowrule = size 900 700, class:^(waypaper)$
-windowrule = opacity 1.0 override 1.0 override, class:^(mpv)$
-windowrule = opacity 1.0 override 1.0 override, class:^(vlc)$
-windowrule = opacity 1.0 override 1.0 override, class:^(com.obsproject.Studio)$
-windowrule = opacity 1.0 override 1.0 override, class:^(zoom)$
-windowrule = opacity 1.0 override 1.0 override, class:^(steam_app_.*)$
-windowrule = opacity 1.0 override 1.0 override, fullscreen:1
-windowrule = opacity 0.92 0.85, class:^(ghostty)$
-windowrule = opacity 0.95 0.9, class:^(org.gnome.Nautilus)$
+windowrule = float, match:class ^(com\.floating\.tui)$
+windowrule = center, match:class ^(com\.floating\.tui)$
+windowrule = size 800 600, match:class ^(com\.floating\.tui)$
+windowrule = float, match:initialClass ^(com\.floating\.tui)$
+windowrule = center, match:initialClass ^(com\.floating\.tui)$
+windowrule = size 800 600, match:initialClass ^(com\.floating\.tui)$
+windowrule = float, match:class ^(waypaper)$
+windowrule = center, match:class ^(waypaper)$
+windowrule = size 900 700, match:class ^(waypaper)$
+windowrule = opacity 1.0 override 1.0 override, match:class ^(mpv)$
+windowrule = opacity 1.0 override 1.0 override, match:class ^(vlc)$
+windowrule = opacity 1.0 override 1.0 override, match:class ^(com.obsproject.Studio)$
+windowrule = opacity 1.0 override 1.0 override, match:class ^(zoom)$
+windowrule = opacity 1.0 override 1.0 override, match:class ^(steam_app_.*)$
+windowrule = opacity 1.0 override 1.0 override, match:fullscreen 1
+windowrule = opacity 0.92 0.85, match:class ^(ghostty)$
+windowrule = opacity 0.95 0.9, match:class ^(org.gnome.Nautilus)$
 
-layerrule = blur, rofi
-layerrule = blur, waybar
-layerrule = ignorezero, rofi
-layerrule = ignorezero, waybar
+layerrule = blur on, match:namespace ^rofi$
+layerrule = blur on, match:namespace ^waybar$
+layerrule = ignorezero on, match:namespace ^rofi$
+layerrule = ignorezero on, match:namespace ^waybar$
