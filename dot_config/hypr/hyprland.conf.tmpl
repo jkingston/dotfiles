@@ -224,14 +224,14 @@ misc {
 }
 
 # Window rules
-windowrule = float, match:class ^(com\.floating\.tui)$
-windowrule = center, match:class ^(com\.floating\.tui)$
+windowrule = float on, match:class ^(com\.floating\.tui)$
+windowrule = center on, match:class ^(com\.floating\.tui)$
 windowrule = size 800 600, match:class ^(com\.floating\.tui)$
-windowrule = float, match:initialClass ^(com\.floating\.tui)$
-windowrule = center, match:initialClass ^(com\.floating\.tui)$
-windowrule = size 800 600, match:initialClass ^(com\.floating\.tui)$
-windowrule = float, match:class ^(waypaper)$
-windowrule = center, match:class ^(waypaper)$
+windowrule = float on, match:initial_class ^(com\.floating\.tui)$
+windowrule = center on, match:initial_class ^(com\.floating\.tui)$
+windowrule = size 800 600, match:initial_class ^(com\.floating\.tui)$
+windowrule = float on, match:class ^(waypaper)$
+windowrule = center on, match:class ^(waypaper)$
 windowrule = size 900 700, match:class ^(waypaper)$
 windowrule = opacity 1.0 override 1.0 override, match:class ^(mpv)$
 windowrule = opacity 1.0 override 1.0 override, match:class ^(vlc)$
@@ -244,5 +244,5 @@ windowrule = opacity 0.95 0.9, match:class ^(org.gnome.Nautilus)$
 
 layerrule = blur on, match:namespace ^rofi$
 layerrule = blur on, match:namespace ^waybar$
-layerrule = ignorezero on, match:namespace ^rofi$
-layerrule = ignorezero on, match:namespace ^waybar$
+layerrule = ignore_alpha, match:namespace ^rofi$
+layerrule = ignore_alpha, match:namespace ^waybar$
