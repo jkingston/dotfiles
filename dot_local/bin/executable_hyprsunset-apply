@@ -13,6 +13,8 @@ if [ "$(sunwait poll $COORDS)" = "DAY" ]; then
   # Daytime - disable night light
   if [ -f /tmp/hyprsunset-night ]; then
     rm -f /tmp/hyprsunset-night
+    pkill -x hyprsunset 2>/dev/null
+    while pgrep -x hyprsunset >/dev/null; do sleep 0.1; done
     hyprsunset -i
     pkill -SIGRTMIN+10 waybar || true
   fi
@@ -20,6 +22,8 @@ else
   # Nighttime - enable night light
   if [ ! -f /tmp/hyprsunset-night ]; then
     touch /tmp/hyprsunset-night
+    pkill -x hyprsunset 2>/dev/null
+    while pgrep -x hyprsunset >/dev/null; do sleep 0.1; done
     hyprsunset -t "$TEMP"
     pkill -SIGRTMIN+10 waybar || true
   fi

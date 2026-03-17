@@ -21,6 +21,8 @@ while true; do
   if [ -z "$SELECTED" ]; then
     # ESC pressed - revert to previous
     if [ -f /tmp/hyprsunset-night ]; then
+      pkill -x hyprsunset 2>/dev/null
+      while pgrep -x hyprsunset >/dev/null; do sleep 0.1; done
       hyprsunset -t "$PREV_TEMP"
     fi
     break
@@ -31,6 +33,8 @@ while true; do
 
   if [ -n "$VALUE" ]; then
     # Apply live preview
+    pkill -x hyprsunset 2>/dev/null
+    while pgrep -x hyprsunset >/dev/null; do sleep 0.1; done
     hyprsunset -t "$VALUE"
 
     # Save and exit on second selection of same value (confirm)

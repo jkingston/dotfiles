@@ -8,16 +8,23 @@ COORDS=$(~/.local/bin/hyprsunset-coords)
 STATE_FILE="/tmp/hyprsunset-night"
 AUTO_FILE="/tmp/hyprsunset-auto"
 
+stop_hyprsunset() {
+  pkill -x hyprsunset 2>/dev/null
+  while pgrep -x hyprsunset >/dev/null; do sleep 0.1; done
+}
+
 if [ ! -f "$AUTO_FILE" ]; then
   # Auto -> On: Force night mode
   touch "$AUTO_FILE"
   touch "$STATE_FILE"
+  stop_hyprsunset
   hyprsunset -t "$TEMP"
   notify-send -t 1500 "Night Light: On"
 elif [ -f "$STATE_FILE" ]; then
   # On -> Off: Force day mode
   rm "$STATE_FILE"
-  hyprctl hyprsunset identity
+  stop_hyprsunset
+  hyprsunset -i
   notify-send -t 1500 "Night Light: Off"
 else
   # Off -> Auto: Resume schedule
@@ -29,6 +36,7 @@ else
   else
     # Nighttime - apply night mode
     touch "$STATE_FILE"
+    stop_hyprsunset
     hyprsunset -t "$TEMP"
   fi
   notify-send -t 1500 "Night Light: Auto"
