@@ -1,27 +1,37 @@
 #!/usr/bin/env bash
+# Cycle through: Auto -> On -> Off -> Auto
+
 CONFIG_DIR="$HOME/.config/hyprsunset"
-mkdir -p "$CONFIG_DIR"
 TEMP=$(cat "$CONFIG_DIR/temperature" 2>/dev/null || echo "3500")
+COORDS=$(~/.local/bin/hyprsunset-coords)
+
 STATE_FILE="/tmp/hyprsunset-night"
 AUTO_FILE="/tmp/hyprsunset-auto"
 
 if [ ! -f "$AUTO_FILE" ]; then
-  # Auto -> On
+  # Auto -> On: Force night mode
   touch "$AUTO_FILE"
   touch "$STATE_FILE"
-  pkill hyprsunset 2>/dev/null
-  hyprsunset -t "$TEMP" &
+  hyprsunset -t "$TEMP"
   notify-send -t 1500 "Night Light: On"
 elif [ -f "$STATE_FILE" ]; then
-  # On -> Off
+  # On -> Off: Force day mode
   rm "$STATE_FILE"
-  pkill hyprsunset 2>/dev/null
+  hyprctl hyprsunset identity
   notify-send -t 1500 "Night Light: Off"
 else
-  # Off -> Auto
+  # Off -> Auto: Resume schedule
   rm "$AUTO_FILE"
-  ~/.local/bin/hyprsunset-apply
+  # Check if it should be night based on current time
+  if [ "$(sunwait poll $COORDS)" = "DAY" ]; then
+    # Daytime - keep day mode
+    :
+  else
+    # Nighttime - apply night mode
+    touch "$STATE_FILE"
+    hyprsunset -t "$TEMP"
+  fi
   notify-send -t 1500 "Night Light: Auto"
 fi
 
-pkill -SIGRTMIN+10 waybar 2>/dev/null || true
+pkill -SIGRTMIN+10 waybar

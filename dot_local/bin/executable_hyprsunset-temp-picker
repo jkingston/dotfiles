@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
+# Temperature picker with live preview
+
 CONFIG_DIR="$HOME/.config/hyprsunset"
-mkdir -p "$CONFIG_DIR"
 PREV_TEMP=$(cat "$CONFIG_DIR/temperature" 2>/dev/null || echo "3500")
 LAST_VALUE=""
 
@@ -13,19 +14,26 @@ Soft (3500K)
 Reading (4000K)
 Mild (4500K)"
 
+# Show rofi, apply on each selection
 while true; do
   SELECTED=$(echo "$MENU" | rofi -dmenu -p "Temperature (ESC to cancel)" -i)
+
   if [ -z "$SELECTED" ]; then
+    # ESC pressed - revert to previous
     if [ -f /tmp/hyprsunset-night ]; then
-      pkill hyprsunset 2>/dev/null
-      hyprsunset -t "$PREV_TEMP" &
+      hyprsunset -t "$PREV_TEMP"
     fi
     break
   fi
+
+  # Extract temperature value from selection
   VALUE=$(echo "$SELECTED" | grep -oP '\d+(?=K)')
+
   if [ -n "$VALUE" ]; then
-    pkill hyprsunset 2>/dev/null
-    hyprsunset -t "$VALUE" &
+    # Apply live preview
+    hyprsunset -t "$VALUE"
+
+    # Save and exit on second selection of same value (confirm)
     if [ "$VALUE" = "$LAST_VALUE" ]; then
       echo "$VALUE" > "$CONFIG_DIR/temperature"
       notify-send -t 1500 "Temperature: ${VALUE}K"

@@ -1,19 +1,40 @@
 #!/usr/bin/env bash
+# Output JSON for waybar tooltip with sun times and current state
+
 CONFIG_DIR="$HOME/.config/hyprsunset"
 TEMP=$(cat "$CONFIG_DIR/temperature" 2>/dev/null || echo "3500")
+TZ=$(timedatectl show --property=Timezone --value 2>/dev/null || echo "Europe/London")
+COORDS=$(~/.local/bin/hyprsunset-coords)
+
+# State files
 STATE_FILE="/tmp/hyprsunset-night"
 AUTO_FILE="/tmp/hyprsunset-auto"
 
+# Determine mode and state
 if [ -f "$AUTO_FILE" ]; then
-  if [ -f "$STATE_FILE" ]; then MODE="on"; else MODE="off"; fi
+  if [ -f "$STATE_FILE" ]; then
+    MODE="on"
+  else
+    MODE="off"
+  fi
 else
   MODE="auto"
 fi
 
+# Current state (on/off) and icon
 if [ -f "$STATE_FILE" ]; then
-  ICON="󱩌"; STATE="ON (${TEMP}K)"
+  ICON="󱩌"
+  STATE="ON (${TEMP}K)"
 else
-  ICON="󰹏"; STATE="OFF"
+  ICON="󰹏"
+  STATE="OFF"
 fi
 
-printf '{"text": "%s", "tooltip": "Night light: %s\\nMode: %s"}' "$ICON" "$STATE" "$MODE"
+# Parse daylight times correctly from sunwait report
+# Format: "Day with twilight: 08:03 to 16:03"
+DAYLIGHT=$(sunwait report $COORDS | grep "Day with twilight" | sed 's/.*: //')
+SUNRISE=$(echo "$DAYLIGHT" | awk '{print $1}')
+SUNSET=$(echo "$DAYLIGHT" | awk '{print $3}')
+
+# Output JSON for waybar
+printf '{"text": "%s", "tooltip": "Night light: %s\\nMode: %s\\n%s\\n☀️ %s  🌙 %s"}' "$ICON" "$STATE" "$MODE" "$TZ" "$SUNRISE" "$SUNSET"

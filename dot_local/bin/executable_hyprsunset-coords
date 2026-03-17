@@ -1,9 +1,76 @@
 #!/usr/bin/env bash
-TZ=$(timedatectl show --property=Timezone --value 2>/dev/null || cat /etc/timezone 2>/dev/null || echo "Europe/London")
-case "$TZ" in
-  Europe/London) echo "51.51 -0.13" ;;
-  Europe/Berlin|Europe/Paris) echo "48.86 2.35" ;;
-  America/New_York) echo "40.71 -74.01" ;;
-  America/Los_Angeles) echo "34.05 -118.24" ;;
-  *) echo "51.51 -0.13" ;;
-esac
+# Get coordinates from system timezone using tzdata
+
+TZ=$(timedatectl show --property=Timezone --value 2>/dev/null || echo "Europe/London")
+TZDIR=$(dirname $(readlink -f /etc/localtime) 2>/dev/null)
+
+# Look up timezone in zone.tab
+LINE=$(grep -E "[[:space:]]$TZ\$" "$TZDIR/zone.tab" 2>/dev/null | head -1)
+ISO_COORDS=$(echo "$LINE" | awk '{print $2}')
+
+# Default to London if lookup fails
+if [ -z "$ISO_COORDS" ]; then
+  echo "51.5N 0.1W"
+  exit 0
+fi
+
+# Parse ISO 6709 format: +DDMM or +DDMMSS for lat, -DDDMM or -DDDMMSS for lon
+# Example: +513030-0000731 = 51°30'30"N 0°07'31"W
+
+# Split into lat and lon parts
+# Latitude is first + or - to next + or -
+LAT_SIGN="${ISO_COORDS:0:1}"
+REST="${ISO_COORDS:1}"
+
+# Find where longitude starts (next + or -)
+for i in $(seq 0 $((${#REST}-1))); do
+  CHAR="${REST:$i:1}"
+  if [ "$CHAR" = "+" ] || [ "$CHAR" = "-" ]; then
+    LAT_NUM="${REST:0:$i}"
+    LON_SIGN="$CHAR"
+    LON_NUM="${REST:$((i+1))}"
+    break
+  fi
+done
+
+# Parse latitude (DDMM or DDMMSS)
+if [ ${#LAT_NUM} -le 4 ]; then
+  LAT_DEG="${LAT_NUM:0:2}"
+  LAT_MIN="${LAT_NUM:2:2}"
+  LAT_SEC=0
+else
+  LAT_DEG="${LAT_NUM:0:2}"
+  LAT_MIN="${LAT_NUM:2:2}"
+  LAT_SEC="${LAT_NUM:4:2}"
+fi
+
+# Parse longitude (DDDMM or DDDMMSS)
+if [ ${#LON_NUM} -le 5 ]; then
+  LON_DEG="${LON_NUM:0:3}"
+  LON_MIN="${LON_NUM:3:2}"
+  LON_SEC=0
+else
+  LON_DEG="${LON_NUM:0:3}"
+  LON_MIN="${LON_NUM:3:2}"
+  LON_SEC="${LON_NUM:5:2}"
+fi
+
+# Remove leading zeros for bc
+LAT_DEG=$((10#$LAT_DEG))
+LAT_MIN=$((10#$LAT_MIN))
+LAT_SEC=$((10#$LAT_SEC))
+LON_DEG=$((10#$LON_DEG))
+LON_MIN=$((10#$LON_MIN))
+LON_SEC=$((10#$LON_SEC))
+
+# Calculate decimal degrees
+LAT=$(echo "scale=2; $LAT_DEG + $LAT_MIN/60 + $LAT_SEC/3600" | bc)
+LON=$(echo "scale=2; $LON_DEG + $LON_MIN/60 + $LON_SEC/3600" | bc)
+
+# Determine direction
+LAT_DIR="N"
+[ "$LAT_SIGN" = "-" ] && LAT_DIR="S"
+LON_DIR="E"
+[ "$LON_SIGN" = "-" ] && LON_DIR="W"
+
+echo "${LAT}${LAT_DIR} ${LON}${LON_DIR}"

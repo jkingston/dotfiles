@@ -1,27 +1,26 @@
 #!/usr/bin/env bash
+# Apply correct nightlight state based on current time
+# Called by timer every 15 min and on wake from sleep
+
+# Skip if manual override is active
+[ -f /tmp/hyprsunset-auto ] && exit 0
+
 CONFIG_DIR="$HOME/.config/hyprsunset"
-mkdir -p "$CONFIG_DIR"
 TEMP=$(cat "$CONFIG_DIR/temperature" 2>/dev/null || echo "3500")
-STATE_FILE="/tmp/hyprsunset-night"
-AUTO_FILE="/tmp/hyprsunset-auto"
+COORDS=$(~/.local/bin/hyprsunset-coords)
 
-# If manual override active, do nothing
-[ -f "$AUTO_FILE" ] && exit 0
-
-HOUR=$(date +%H)
-
-if [ "$HOUR" -ge 7 ] && [ "$HOUR" -lt 19 ]; then
-  # Daytime
-  if [ -f "$STATE_FILE" ]; then
-    rm -f "$STATE_FILE"
-    pkill hyprsunset 2>/dev/null
-    pkill -SIGRTMIN+10 waybar 2>/dev/null || true
+if [ "$(sunwait poll $COORDS)" = "DAY" ]; then
+  # Daytime - disable night light
+  if [ -f /tmp/hyprsunset-night ]; then
+    rm -f /tmp/hyprsunset-night
+    hyprsunset -i
+    pkill -SIGRTMIN+10 waybar || true
   fi
 else
-  # Nighttime
-  if [ ! -f "$STATE_FILE" ]; then
-    touch "$STATE_FILE"
-    hyprsunset -t "$TEMP" &
-    pkill -SIGRTMIN+10 waybar 2>/dev/null || true
+  # Nighttime - enable night light
+  if [ ! -f /tmp/hyprsunset-night ]; then
+    touch /tmp/hyprsunset-night
+    hyprsunset -t "$TEMP"
+    pkill -SIGRTMIN+10 waybar || true
   fi
 fi
