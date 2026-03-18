@@ -169,7 +169,7 @@ bindl = , XF86AudioPause, exec, playerctl play-pause
 
 {{- if .is_laptop }}
 # Lid switch
-bindl = , switch:on:Lid Switch, exec, pidof hyprlock || hyprlock
+bindl = , switch:on:Lid Switch, exec, loginctl lock-session
 bindl = , switch:off:Lid Switch, exec, hyprctl dispatch dpms on
 {{- end }}
 
