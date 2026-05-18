@@ -20,49 +20,56 @@ warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
 error() { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
 
 # --- Machine profiles ---
-declare -A PROFILE_HOSTNAME PROFILE_IS_LAPTOP PROFILE_IS_VM PROFILE_MONITOR PROFILE_SCALE
-declare -A PROFILE_GAPS_INNER PROFILE_GAPS_OUTER PROFILE_BORDER PROFILE_GPU PROFILE_DISK
-declare -A PROFILE_LUKS PROFILE_EXTRA_PACKAGES PROFILE_MICROCODE
+PROFILES=(framework12 minipc)
 
-# Framework 13 (12th gen Intel)
-PROFILE_HOSTNAME[framework12]="fw12"
-PROFILE_IS_LAPTOP[framework12]=true
-PROFILE_IS_VM[framework12]=false
-PROFILE_MONITOR[framework12]="eDP-1"
-PROFILE_SCALE[framework12]="1.25"
-PROFILE_GAPS_INNER[framework12]=5
-PROFILE_GAPS_OUTER[framework12]=5
-PROFILE_BORDER[framework12]=2
-PROFILE_GPU[framework12]="intel"
-PROFILE_DISK[framework12]="/dev/nvme0n1"
-PROFILE_LUKS[framework12]=true
-PROFILE_MICROCODE[framework12]="intel-ucode"
-PROFILE_EXTRA_PACKAGES[framework12]="intel-media-driver fwupd upower iio-sensor-proxy power-profiles-daemon"
+load_profile() {
+    PROFILE_PACKAGES=()
 
-# Beelink SER5 Pro (AMD)
-PROFILE_HOSTNAME[minipc]="minipc"
-PROFILE_IS_LAPTOP[minipc]=false
-PROFILE_IS_VM[minipc]=false
-PROFILE_MONITOR[minipc]=""
-PROFILE_SCALE[minipc]="1.66666666"
-PROFILE_GAPS_INNER[minipc]=5
-PROFILE_GAPS_OUTER[minipc]=10
-PROFILE_BORDER[minipc]=2
-PROFILE_GPU[minipc]="amd"
-PROFILE_DISK[minipc]="/dev/nvme0n1"
-PROFILE_LUKS[minipc]=true
-PROFILE_MICROCODE[minipc]="amd-ucode"
-PROFILE_EXTRA_PACKAGES[minipc]=""
+    case "$1" in
+        framework12)
+            HOSTNAME="fw12"
+            IS_LAPTOP=true
+            IS_VM=false
+            MONITOR="eDP-1"
+            SCALE="1.25"
+            GAPS_INNER=5
+            GAPS_OUTER=5
+            BORDER=2
+            GPU="intel"
+            PROFILE_DISK="/dev/nvme0n1"
+            USE_LUKS=true
+            MICROCODE="intel-ucode"
+            PROFILE_PACKAGES=(intel-media-driver fwupd upower iio-sensor-proxy power-profiles-daemon)
+            ;;
+        minipc)
+            HOSTNAME="minipc"
+            IS_LAPTOP=false
+            IS_VM=false
+            MONITOR=""
+            SCALE="1.66666666"
+            GAPS_INNER=5
+            GAPS_OUTER=10
+            BORDER=2
+            GPU="amd"
+            PROFILE_DISK="/dev/nvme0n1"
+            USE_LUKS=true
+            MICROCODE="amd-ucode"
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
 
 # --- Parse arguments ---
 PROFILE="${1:-}"
 DESKTOP="${2:-hyprland}"
 
-if [ -z "$PROFILE" ] || [ -z "${PROFILE_HOSTNAME[$PROFILE]:-}" ]; then
+if [ -z "$PROFILE" ] || ! load_profile "$PROFILE"; then
     echo "Usage: $0 <profile> [desktop]"
     echo ""
     echo "Available profiles:"
-    for p in "${!PROFILE_HOSTNAME[@]}"; do
+    for p in "${PROFILES[@]}"; do
         echo "  $p"
     done
     echo ""
@@ -74,19 +81,7 @@ if [[ "$DESKTOP" != "hyprland" && "$DESKTOP" != "gnome" ]]; then
     error "Unknown desktop: $DESKTOP (choose hyprland or gnome)"
 fi
 
-HOSTNAME="${PROFILE_HOSTNAME[$PROFILE]}"
-IS_LAPTOP="${PROFILE_IS_LAPTOP[$PROFILE]}"
-IS_VM="${PROFILE_IS_VM[$PROFILE]}"
-MONITOR="${PROFILE_MONITOR[$PROFILE]}"
-SCALE="${PROFILE_SCALE[$PROFILE]}"
-GAPS_INNER="${PROFILE_GAPS_INNER[$PROFILE]}"
-GAPS_OUTER="${PROFILE_GAPS_OUTER[$PROFILE]}"
-BORDER="${PROFILE_BORDER[$PROFILE]}"
-GPU="${PROFILE_GPU[$PROFILE]}"
-DISK="${INSTALL_DISK:-${PROFILE_DISK[$PROFILE]}}"
-USE_LUKS="${PROFILE_LUKS[$PROFILE]}"
-MICROCODE="${PROFILE_MICROCODE[$PROFILE]}"
-EXTRA_PACKAGES="${PROFILE_EXTRA_PACKAGES[$PROFILE]}"
+DISK="${INSTALL_DISK:-$PROFILE_DISK}"
 USERNAME="jack"
 INSTALL_SERIAL="${INSTALL_SERIAL:-0}"
 
@@ -177,11 +172,10 @@ HYPRLAND_PACKAGES=(
 
 GNOME_PACKAGES=(
     gnome gdm
-    gnome-tweaks gnome-shell-extensions
-    xdg-desktop-portal-gnome xdg-desktop-portal-gtk
+    gnome-tweaks gnome-shell-extensions gnome-browser-connector
+    xdg-desktop-portal-gnome
     xdg-user-dirs dconf
     power-profiles-daemon
-    bluetui pulsemixer
 )
 
 BASE_PACKAGES=("${COMMON_PACKAGES[@]}")
@@ -192,8 +186,7 @@ elif [ "$DESKTOP" = "gnome" ]; then
 fi
 
 # Add extra packages for this profile
-read -ra EXTRAS <<< "$EXTRA_PACKAGES"
-BASE_PACKAGES+=("${EXTRAS[@]}")
+BASE_PACKAGES+=("${PROFILE_PACKAGES[@]}")
 
 info "Installing base system (this will take a while)..."
 pacstrap -K /mnt "${BASE_PACKAGES[@]}"
@@ -335,7 +328,7 @@ fi
 if [ "$DESKTOP" = "hyprland" ]; then
     AUR_PACKAGES="$AUR_PACKAGES grimblast-git waypaper wvkbd rofi-power-menu catppuccin-gtk-theme-mocha sunwait"
 elif [ "$DESKTOP" = "gnome" ]; then
-    AUR_PACKAGES="$AUR_PACKAGES gnome-browser-connector gnome-extensions-cli"
+    AUR_PACKAGES="$AUR_PACKAGES gnome-extensions-cli"
 fi
 
 arch-chroot /mnt su - "$USERNAME" -c "
@@ -381,11 +374,6 @@ elif [ "$DESKTOP" = "gnome" ]; then
     hostname = "$HOSTNAME"
     is_laptop = $IS_LAPTOP
     is_vm = $IS_VM
-    monitor_name = ""
-    monitor_scale = "1"
-    gaps_inner = 0
-    gaps_outer = 0
-    border_size = 0
     gpu = "$GPU"
 CHEZCONF
 fi
