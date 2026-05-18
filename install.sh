@@ -3,9 +3,12 @@ set -euo pipefail
 
 # Arch Linux automated installer
 # Run from the Arch live ISO:
-#   curl -sL https://raw.githubusercontent.com/jkingston/dotfiles/main/install.sh | bash -s -- <profile>
+#   curl -sL https://raw.githubusercontent.com/jkingston/dotfiles/main/install.sh | bash -s -- <profile> [desktop]
 # Or locally:
-#   ./install.sh <profile>
+#   ./install.sh <profile> [desktop]
+#
+# Unattended mode (for VM testing):
+#   UNATTENDED=1 PASSWORD=mypass ./install.sh <profile> [desktop]
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -53,14 +56,22 @@ PROFILE_EXTRA_PACKAGES[minipc]=""
 
 # --- Parse arguments ---
 PROFILE="${1:-}"
+DESKTOP="${2:-hyprland}"
+
 if [ -z "$PROFILE" ] || [ -z "${PROFILE_HOSTNAME[$PROFILE]:-}" ]; then
-    echo "Usage: $0 <profile>"
+    echo "Usage: $0 <profile> [desktop]"
     echo ""
     echo "Available profiles:"
     for p in "${!PROFILE_HOSTNAME[@]}"; do
         echo "  $p"
     done
+    echo ""
+    echo "Available desktops: hyprland (default), gnome"
     exit 1
+fi
+
+if [[ "$DESKTOP" != "hyprland" && "$DESKTOP" != "gnome" ]]; then
+    error "Unknown desktop: $DESKTOP (choose hyprland or gnome)"
 fi
 
 HOSTNAME="${PROFILE_HOSTNAME[$PROFILE]}"
@@ -72,23 +83,27 @@ GAPS_INNER="${PROFILE_GAPS_INNER[$PROFILE]}"
 GAPS_OUTER="${PROFILE_GAPS_OUTER[$PROFILE]}"
 BORDER="${PROFILE_BORDER[$PROFILE]}"
 GPU="${PROFILE_GPU[$PROFILE]}"
-DISK="${PROFILE_DISK[$PROFILE]}"
+DISK="${INSTALL_DISK:-${PROFILE_DISK[$PROFILE]}}"
 USE_LUKS="${PROFILE_LUKS[$PROFILE]}"
 MICROCODE="${PROFILE_MICROCODE[$PROFILE]}"
 EXTRA_PACKAGES="${PROFILE_EXTRA_PACKAGES[$PROFILE]}"
 USERNAME="jack"
+INSTALL_SERIAL="${INSTALL_SERIAL:-0}"
 
-info "Installing Arch Linux with profile: $PROFILE"
+info "Installing Arch Linux with profile: $PROFILE (desktop: $DESKTOP)"
 info "Hostname: $HOSTNAME | Disk: $DISK | LUKS: $USE_LUKS | GPU: $GPU"
 
 # --- Get passwords ---
-echo ""
-read -s -p "Enter password (user + LUKS): " PASSWORD
-echo ""
-read -s -p "Confirm password: " PASSWORD_CONFIRM
-echo ""
-
-[ "$PASSWORD" = "$PASSWORD_CONFIRM" ] || error "Passwords do not match"
+if [ "${UNATTENDED:-0}" = "1" ]; then
+    [ -z "${PASSWORD:-}" ] && error "UNATTENDED=1 requires PASSWORD env var"
+else
+    echo ""
+    read -r -s -p "Enter password (user + LUKS): " PASSWORD
+    echo ""
+    read -r -s -p "Confirm password: " PASSWORD_CONFIRM
+    echo ""
+    [ "$PASSWORD" = "$PASSWORD_CONFIRM" ] || error "Passwords do not match"
+fi
 
 # --- Verify boot mode ---
 [ -d /sys/firmware/efi/efivars ] || error "Not booted in UEFI mode"
@@ -132,14 +147,24 @@ info "Mounting filesystems..."
 mount "$ROOT_DEV" /mnt
 mount --mkdir "$PART1" /mnt/boot
 
-# --- Base packages ---
-BASE_PACKAGES=(
+# --- Package lists ---
+COMMON_PACKAGES=(
     base linux linux-firmware "$MICROCODE"
     mkinitcpio iptables-nft
     networkmanager bluez bluez-utils
     git neovim sudo base-devel chezmoi
     pipewire pipewire-alsa pipewire-pulse pipewire-jack wireplumber
-    # Desktop
+    # Terminal & tools
+    ghostty starship fzf zoxide bat eza
+    btop ripgrep fd jq tree unzip ncdu duf procs tldr git-delta
+    github-cli direnv lazygit lazydocker
+    # Fonts
+    ttf-jetbrains-mono-nerd ttf-cascadia-code-nerd noto-fonts
+    # Misc
+    ufw pacman-contrib bc libnotify
+)
+
+HYPRLAND_PACKAGES=(
     hyprland xdg-desktop-portal-hyprland xdg-desktop-portal-gtk
     uwsm waybar mako hyprlock hypridle swww
     rofi-wayland rofimoji wl-clipboard cliphist
@@ -147,17 +172,24 @@ BASE_PACKAGES=(
     playerctl brightnessctl
     greetd greetd-tuigreet
     nautilus
-    # Terminal & tools
-    ghostty starship fzf zoxide bat eza
-    btop ripgrep fd jq tree unzip ncdu duf procs tldr git-delta
-    github-cli direnv
-    swayosd bluetui pulsemixer rofi-calc hyprsunset
-    lazygit lazydocker
-    # Fonts
-    ttf-jetbrains-mono-nerd ttf-cascadia-code-nerd noto-fonts
-    # Misc
-    ufw pacman-contrib bc libnotify
+    swayosd bluetui pulsemixer rofi-calc hyprsunset impala
 )
+
+GNOME_PACKAGES=(
+    gnome gdm
+    gnome-tweaks gnome-shell-extensions
+    xdg-desktop-portal-gnome xdg-desktop-portal-gtk
+    xdg-user-dirs dconf
+    power-profiles-daemon
+    bluetui pulsemixer
+)
+
+BASE_PACKAGES=("${COMMON_PACKAGES[@]}")
+if [ "$DESKTOP" = "hyprland" ]; then
+    BASE_PACKAGES+=("${HYPRLAND_PACKAGES[@]}")
+elif [ "$DESKTOP" = "gnome" ]; then
+    BASE_PACKAGES+=("${GNOME_PACKAGES[@]}")
+fi
 
 # Add extra packages for this profile
 read -ra EXTRAS <<< "$EXTRA_PACKAGES"
@@ -210,13 +242,20 @@ if [ '$USE_LUKS' = true ]; then
 else
     CRYPT_OPT=''
 fi
+if [ '$INSTALL_SERIAL' = '1' ]; then
+    SERIAL_OPT='console=tty1 console=ttyS0,115200n8 '
+    QUIET_OPT=''
+else
+    SERIAL_OPT=''
+    QUIET_OPT='quiet splash'
+fi
 ROOT_UUID=\$(findmnt -no UUID /)
 cat > /boot/loader/entries/arch.conf <<BOOTEOF
 title   Arch Linux
 linux   /vmlinuz-linux
 initrd  /${MICROCODE}.img
 initrd  /initramfs-linux.img
-options \${CRYPT_OPT}root=UUID=\${ROOT_UUID} rw quiet splash
+options \${CRYPT_OPT}\${SERIAL_OPT}root=UUID=\${ROOT_UUID} rw \${QUIET_OPT}
 BOOTEOF
 
 # User
@@ -225,21 +264,21 @@ echo '$USERNAME:$PASSWORD' | chpasswd
 echo 'root:$PASSWORD' | chpasswd
 sed -i 's/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' /etc/sudoers
 
-# Services
+# Services (common)
 systemctl enable NetworkManager
 systemctl enable bluetooth
 systemctl enable fstrim.timer
-systemctl enable greetd
 systemctl enable ufw
-
-# Laptop services
-if [ '$IS_LAPTOP' = true ]; then
-    systemctl enable power-profiles-daemon || true
-    systemctl enable upower || true
+if [ '$INSTALL_SERIAL' = '1' ]; then
+    systemctl enable serial-getty@ttyS0.service
 fi
 
-# Greetd
-cat > /etc/greetd/config.toml <<GREETD
+# Desktop-specific services
+if [ '$DESKTOP' = 'hyprland' ]; then
+    systemctl enable greetd
+
+    # Greetd config
+    cat > /etc/greetd/config.toml <<GREETD
 [terminal]
 vt = 1
 
@@ -248,14 +287,24 @@ command = \"uwsm start hyprland-uwsm.desktop\"
 user = \"$USERNAME\"
 GREETD
 
-# Logind - let hypridle handle lid
-mkdir -p /etc/systemd/logind.conf.d
-cat > /etc/systemd/logind.conf.d/lid.conf <<LID
+    # Logind - let hypridle handle lid
+    mkdir -p /etc/systemd/logind.conf.d
+    cat > /etc/systemd/logind.conf.d/lid.conf <<LID
 [Login]
 HandleLidSwitch=ignore
 HandleLidSwitchExternalPower=ignore
 HandleLidSwitchDocked=ignore
 LID
+
+elif [ '$DESKTOP' = 'gnome' ]; then
+    systemctl enable gdm
+fi
+
+# Laptop services
+if [ '$IS_LAPTOP' = true ]; then
+    systemctl enable power-profiles-daemon || true
+    systemctl enable upower || true
+fi
 
 # Intel graphics env
 if [ '$GPU' = 'intel' ]; then
@@ -274,25 +323,47 @@ info "Installing AUR helper and packages..."
 
 # Temp passwordless sudo for AUR builds
 echo "$USERNAME ALL=(ALL) NOPASSWD: ALL" > /mnt/etc/sudoers.d/temp-aur
+cleanup_temp_aur() {
+    rm -f /mnt/etc/sudoers.d/temp-aur
+}
+trap cleanup_temp_aur EXIT
+
+AUR_PACKAGES="localsend-bin"
+if [ "${UNATTENDED:-0}" != "1" ]; then
+    AUR_PACKAGES="$AUR_PACKAGES librewolf-bin"
+fi
+if [ "$DESKTOP" = "hyprland" ]; then
+    AUR_PACKAGES="$AUR_PACKAGES grimblast-git waypaper wvkbd rofi-power-menu catppuccin-gtk-theme-mocha sunwait"
+elif [ "$DESKTOP" = "gnome" ]; then
+    AUR_PACKAGES="$AUR_PACKAGES gnome-browser-connector gnome-extensions-cli"
+fi
 
 arch-chroot /mnt su - "$USERNAME" -c "
 cd /tmp
 git clone https://aur.archlinux.org/yay-bin.git
 cd yay-bin && makepkg -si --noconfirm
 cd /tmp && rm -rf yay-bin
-yay -S --noconfirm librewolf-bin localsend-bin grimblast-git waypaper wvkbd rofi-power-menu catppuccin-gtk-theme-mocha
+YAY_FLAGS=(--noconfirm)
+if [ '${UNATTENDED:-0}' = '1' ]; then
+    YAY_FLAGS+=(--mflags --skippgpcheck)
+fi
+yay -S \"\${YAY_FLAGS[@]}\" $AUR_PACKAGES
 "
 
 # Remove temp sudo
-rm -f /mnt/etc/sudoers.d/temp-aur
+cleanup_temp_aur
+trap - EXIT
 
 # --- Chezmoi dotfiles ---
 info "Setting up dotfiles with chezmoi..."
 
 # Write chezmoi config for this machine
 mkdir -p "/mnt/home/$USERNAME/.config/chezmoi"
-cat > "/mnt/home/$USERNAME/.config/chezmoi/chezmoi.toml" <<CHEZCONF
+
+if [ "$DESKTOP" = "hyprland" ]; then
+    cat > "/mnt/home/$USERNAME/.config/chezmoi/chezmoi.toml" <<CHEZCONF
 [data]
+    desktop = "hyprland"
     hostname = "$HOSTNAME"
     is_laptop = $IS_LAPTOP
     is_vm = $IS_VM
@@ -303,22 +374,45 @@ cat > "/mnt/home/$USERNAME/.config/chezmoi/chezmoi.toml" <<CHEZCONF
     border_size = $BORDER
     gpu = "$GPU"
 CHEZCONF
+elif [ "$DESKTOP" = "gnome" ]; then
+    cat > "/mnt/home/$USERNAME/.config/chezmoi/chezmoi.toml" <<CHEZCONF
+[data]
+    desktop = "gnome"
+    hostname = "$HOSTNAME"
+    is_laptop = $IS_LAPTOP
+    is_vm = $IS_VM
+    monitor_name = ""
+    monitor_scale = "1"
+    gaps_inner = 0
+    gaps_outer = 0
+    border_size = 0
+    gpu = "$GPU"
+CHEZCONF
+fi
 
-# Clone dotfiles and apply (clone manually to avoid TTY prompt from chezmoi init)
-arch-chroot /mnt su - "$USERNAME" -c "
-git clone https://github.com/jkingston/dotfiles.git ~/.local/share/chezmoi
-chezmoi apply
-"
+# Clone or copy dotfiles and apply (clone manually to avoid TTY prompt from chezmoi init)
+mkdir -p "/mnt/home/$USERNAME/.local/share"
+chown -R 1000:1000 "/mnt/home/$USERNAME/.config" "/mnt/home/$USERNAME/.local"
+if [ -n "${DOTFILES_SOURCE:-}" ] && [ -d "$DOTFILES_SOURCE" ]; then
+    mkdir -p "/mnt/home/$USERNAME/.local/share/chezmoi"
+    cp -R "$DOTFILES_SOURCE/." "/mnt/home/$USERNAME/.local/share/chezmoi"
+else
+    arch-chroot /mnt su - "$USERNAME" -c "git clone https://github.com/jkingston/dotfiles.git ~/.local/share/chezmoi"
+fi
+chown -R 1000:1000 "/mnt/home/$USERNAME/.config/chezmoi" "/mnt/home/$USERNAME/.local/share/chezmoi"
+arch-chroot /mnt su - "$USERNAME" -c "chezmoi apply"
 
 # Fix ownership
 chown -R 1000:1000 "/mnt/home/$USERNAME"
 
-# --- Create wallpaper directory ---
-mkdir -p "/mnt/home/$USERNAME/Pictures/Wallpapers"
-mkdir -p "/mnt/home/$USERNAME/.config/hyprsunset"
-echo "3500" > "/mnt/home/$USERNAME/.config/hyprsunset/temperature"
-chown -R 1000:1000 "/mnt/home/$USERNAME/Pictures"
-chown -R 1000:1000 "/mnt/home/$USERNAME/.config/hyprsunset"
+# --- Desktop-specific post-install ---
+if [ "$DESKTOP" = "hyprland" ]; then
+    mkdir -p "/mnt/home/$USERNAME/Pictures/Wallpapers"
+    mkdir -p "/mnt/home/$USERNAME/.config/hyprsunset"
+    echo "3500" > "/mnt/home/$USERNAME/.config/hyprsunset/temperature"
+    chown -R 1000:1000 "/mnt/home/$USERNAME/Pictures"
+    chown -R 1000:1000 "/mnt/home/$USERNAME/.config/hyprsunset"
+fi
 
 # --- Done ---
 info ""
@@ -328,8 +422,10 @@ info "============================================"
 info ""
 info "After reboot:"
 info "  1. Connect to wifi: nmtui"
-info "  2. Download wallpapers:"
-info "     git clone https://github.com/Gingeh/wallpapers.git ~/Pictures/Wallpapers/catppuccin"
+if [ "$DESKTOP" = "hyprland" ]; then
+    info "  2. Download wallpapers:"
+    info "     git clone https://github.com/Gingeh/wallpapers.git ~/Pictures/Wallpapers/catppuccin"
+fi
 info "  3. Authenticate GitHub CLI: gh auth login"
 info ""
 info "Unmounting and ready to reboot."

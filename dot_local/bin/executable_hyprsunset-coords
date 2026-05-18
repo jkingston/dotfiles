@@ -2,7 +2,7 @@
 # Get coordinates from system timezone using tzdata
 
 TZ=$(timedatectl show --property=Timezone --value 2>/dev/null || echo "Europe/London")
-TZDIR=$(dirname $(readlink -f /etc/localtime) 2>/dev/null)
+TZDIR="/usr/share/zoneinfo"
 
 # Look up timezone in zone.tab
 LINE=$(grep -E "[[:space:]]$TZ\$" "$TZDIR/zone.tab" 2>/dev/null | head -1)

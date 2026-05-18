@@ -13,4 +13,4 @@ rm -f ~/.cache/arch-updates/last-check
 pkill -RTMIN+12 waybar || true
 echo ""
 echo "Update complete!"
-read -p "Press Enter to close..."
+read -r -p "Press Enter to close..."

@@ -30,7 +30,7 @@ else
   # Off -> Auto: Resume schedule
   rm "$AUTO_FILE"
   # Check if it should be night based on current time
-  if [ "$(sunwait poll $COORDS)" = "DAY" ]; then
+  if [ "$(sunwait poll "$COORDS")" = "DAY" ]; then
     # Daytime - keep day mode
     :
   else

@@ -1,0 +1,29 @@
+{{ if eq .desktop "gnome" -}}
+#!/usr/bin/env bash
+set -euo pipefail
+
+EXTENSIONS_FILE="$HOME/.config/gnome-extensions.txt"
+if [ ! -f "$EXTENSIONS_FILE" ]; then
+  echo "No gnome-extensions.txt found, skipping"
+  exit 0
+fi
+
+if ! command -v gnome-extensions &>/dev/null; then
+  echo "gnome-extensions CLI not available, skipping"
+  exit 0
+fi
+
+while IFS= read -r uuid; do
+  uuid=$(echo "$uuid" | xargs)
+  [ -z "$uuid" ] && continue
+  [[ "$uuid" == \#* ]] && continue
+
+  echo "Installing extension: $uuid"
+  if command -v gext &>/dev/null; then
+    gext install "$uuid" 2>/dev/null || echo "  Failed to install $uuid (may need GNOME session)"
+  fi
+  gnome-extensions enable "$uuid" 2>/dev/null || echo "  Failed to enable $uuid"
+done < "$EXTENSIONS_FILE"
+
+echo "GNOME extensions setup complete."
+{{ end -}}

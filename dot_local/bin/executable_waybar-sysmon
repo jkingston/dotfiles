@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-read -r TOP_CPU_PCT TOP_CPU_NAME <<< $(ps -eo pcpu,comm --no-headers --sort=-pcpu | head -1 | awk '{print int($1), $2}')
-read -r TOP_RAM_KB TOP_RAM_NAME <<< $(ps -eo rss,comm --no-headers --sort=-rss | head -1 | awk '{print $1, $2}')
+read -r TOP_CPU_PCT TOP_CPU_NAME <<< "$(ps -eo pcpu,comm --no-headers --sort=-pcpu | head -1 | awk '{print int($1), $2}')"
+read -r TOP_RAM_KB TOP_RAM_NAME <<< "$(ps -eo rss,comm --no-headers --sort=-rss | head -1 | awk '{print $1, $2}')"
 TOP_RAM_GB=$(echo "scale=1; $TOP_RAM_KB / 1048576" | bc)
-read -r TOTAL AVAIL <<< $(awk '/MemTotal/ {total=$2} /MemAvailable/ {avail=$2} END {print total, avail}' /proc/meminfo)
+read -r TOTAL AVAIL <<< "$(awk '/MemTotal/ {total=$2} /MemAvailable/ {avail=$2} END {print total, avail}' /proc/meminfo)"
 RAM_PCT=$((100 * (TOTAL - AVAIL) / TOTAL))
 if [ "$TOP_CPU_PCT" -gt 15 ]; then
   CPU_PART="$TOP_CPU_NAME ($TOP_CPU_PCT%)"

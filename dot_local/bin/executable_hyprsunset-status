@@ -32,7 +32,7 @@ fi
 
 # Parse daylight times correctly from sunwait report
 # Format: "Day with twilight: 08:03 to 16:03"
-DAYLIGHT=$(sunwait report $COORDS | grep "Day with twilight" | sed 's/.*: //')
+DAYLIGHT=$(sunwait report "$COORDS" | grep "Day with twilight" | sed 's/.*: //')
 SUNRISE=$(echo "$DAYLIGHT" | awk '{print $1}')
 SUNSET=$(echo "$DAYLIGHT" | awk '{print $3}')
 

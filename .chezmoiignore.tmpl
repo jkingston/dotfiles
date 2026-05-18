@@ -1,0 +1,17 @@
+{{ if eq .desktop "gnome" }}
+dot_config/hypr/**
+dot_config/waybar/**
+dot_config/mako/**
+dot_config/waypaper/**
+dot_config/rofi/**
+dot_config/systemd/user/hyprsunset-check.*
+dot_config/systemd/user/wallpaper-rotate.*
+dot_local/bin/executable_hyprsunset-*
+dot_local/bin/executable_wallpaper-random
+dot_local/bin/executable_waybar-sysmon
+dot_local/bin/executable_osk-toggle
+dot_local/bin/executable_keybind-help
+dot_local/bin/executable_rofi-clipboard
+{{ else if eq .desktop "hyprland" }}
+dot_config/dconf/**
+{{ end }}

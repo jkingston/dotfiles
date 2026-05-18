@@ -1,0 +1,14 @@
+{{ if eq .desktop "gnome" -}}
+#!/usr/bin/env bash
+# Apply dconf settings when user.conf changes
+# hash: {{ include "dot_config/dconf/user.conf" | sha256sum }}
+
+if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
+  echo "No D-Bus session — skipping dconf load (run chezmoi apply from a GNOME session)"
+  exit 0
+fi
+
+echo "Loading dconf settings..."
+dconf load / < ~/.config/dconf/user.conf
+echo "dconf settings applied."
+{{ end -}}

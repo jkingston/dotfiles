@@ -9,7 +9,7 @@ CONFIG_DIR="$HOME/.config/hyprsunset"
 TEMP=$(cat "$CONFIG_DIR/temperature" 2>/dev/null || echo "3500")
 COORDS=$(~/.local/bin/hyprsunset-coords)
 
-if [ "$(sunwait poll $COORDS)" = "DAY" ]; then
+if [ "$(sunwait poll "$COORDS")" = "DAY" ]; then
   # Daytime - disable night light
   if [ -f /tmp/hyprsunset-night ]; then
     rm -f /tmp/hyprsunset-night
