@@ -338,7 +338,7 @@ cd yay-bin && makepkg -si --noconfirm
 cd /tmp && rm -rf yay-bin
 YAY_FLAGS=(--noconfirm)
 if [ '${UNATTENDED:-0}' = '1' ]; then
-    YAY_FLAGS+=(--mflags --skippgpcheck)
+    YAY_FLAGS+=(--answerclean None --answerdiff None --mflags --skippgpcheck)
 fi
 yay -S \"\${YAY_FLAGS[@]}\" $AUR_PACKAGES
 "

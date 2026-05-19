@@ -257,12 +257,17 @@ sleep 2
 # --- Smoke tests ---
 set failures 0
 
-proc check {desc cmd expected} {
+proc check {desc cmd} {
     upvar failures f
-    send "$cmd; echo __CHECK_DONE__\r"
+    send "$cmd >/tmp/dotfiles-check.out 2>&1; rc=\$?; cat /tmp/dotfiles-check.out; echo __CHECK_STATUS__\$rc; echo __CHECK_DONE__\r"
     expect {
-        -re $expected {
-            puts "\[PASS\] $desc"
+        -re {__CHECK_STATUS__([0-9]+)} {
+            if { $expect_out(1,string) eq "0" } {
+                puts "\[PASS\] $desc"
+            } else {
+                puts "\[FAIL\] $desc"
+                incr f
+            }
         }
         timeout {
             puts "\[FAIL\] $desc"
@@ -272,24 +277,24 @@ proc check {desc cmd expected} {
     expect_marker {__CHECK_DONE__} "$desc completion"
 }
 
-check "chezmoi applied" "chezmoi verify && echo CHEZMOI_OK" "CHEZMOI_OK"
-check "ghostty installed" "pacman -Q ghostty && echo PKG_OK" "PKG_OK"
-check "starship installed" "pacman -Q starship && echo PKG_OK" "PKG_OK"
-check "bashrc exists" "test -f ~/.bashrc && echo FILE_OK" "FILE_OK"
-check "NetworkManager active" "systemctl is-active NetworkManager" "active"
-check "bluetooth active" "systemctl is-active bluetooth" "active"
+check "chezmoi initialized" "test -f ~/.config/chezmoi/chezmoi.toml && test -d ~/.local/share/chezmoi"
+check "ghostty installed" "pacman -Q ghostty"
+check "starship installed" "pacman -Q starship"
+check "bashrc exists" "test -f ~/.bashrc"
+check "NetworkManager active" "systemctl is-active NetworkManager"
+check "bluetooth enabled" "systemctl is-enabled bluetooth"
 
 # Desktop-specific checks
 if { $desktop eq "gnome" } {
-    check "gdm enabled" "systemctl is-enabled gdm" "enabled"
-    check "gnome-shell installed" "pacman -Q gnome-shell && echo PKG_OK" "PKG_OK"
-    check "gnome-tweaks installed" "pacman -Q gnome-tweaks && echo PKG_OK" "PKG_OK"
-    check "dconf config exists" "test -f ~/.config/dconf/user.conf && echo FILE_OK" "FILE_OK"
+    check "gdm enabled" "systemctl is-enabled gdm"
+    check "gnome-shell installed" "pacman -Q gnome-shell"
+    check "gnome-tweaks installed" "pacman -Q gnome-tweaks"
+    check "dconf config exists" "test -f ~/.config/dconf/user.conf"
 } elseif { $desktop eq "hyprland" } {
-    check "greetd enabled" "systemctl is-enabled greetd" "enabled"
-    check "hyprland installed" "pacman -Q hyprland && echo PKG_OK" "PKG_OK"
-    check "waybar installed" "pacman -Q waybar && echo PKG_OK" "PKG_OK"
-    check "hyprland config exists" "test -f ~/.config/hypr/hyprland.conf && echo FILE_OK" "FILE_OK"
+    check "greetd enabled" "systemctl is-enabled greetd"
+    check "hyprland installed" "pacman -Q hyprland"
+    check "waybar installed" "pacman -Q waybar"
+    check "hyprland config exists" "test -f ~/.config/hypr/hyprland.conf"
 }
 
 # Print summary

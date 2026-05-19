@@ -1,9 +1,26 @@
 {{ if eq .desktop "gnome" }}
+.config/hypr/**
+.config/waybar/**
+.config/mako/**
+.config/waypaper/**
+.config/rofi/**
+.config/systemd/user/hyprsunset-check.*
+.config/systemd/user/wallpaper-rotate.*
+.local/bin/hyprsunset-*
+.local/bin/wallpaper-random
+.local/bin/waybar-sysmon
+.local/bin/arch-update-menu
+.local/bin/arch-updates-check
+.local/bin/osk-toggle
+.local/bin/keybind-help
+.local/bin/rofi-clipboard
 dot_config/hypr/**
 dot_config/waybar/**
 dot_config/mako/**
 dot_config/waypaper/**
 dot_config/rofi/**
+.Xresources
+dot_Xresources
 dot_Xresources.tmpl
 dot_config/systemd/user/hyprsunset-check.*
 dot_config/systemd/user/wallpaper-rotate.*
@@ -16,5 +33,6 @@ dot_local/bin/executable_osk-toggle
 dot_local/bin/executable_keybind-help
 dot_local/bin/executable_rofi-clipboard
 {{ else if eq .desktop "hyprland" }}
+.config/dconf/**
 dot_config/dconf/**
 {{ end }}
