@@ -1,4 +1,4 @@
-{{ if eq .desktop "gnome" }}
+{{ if or (eq .desktop "gnome") (eq .desktop "kde") }}
 .config/hypr/**
 .config/waybar/**
 .config/mako/**
@@ -32,7 +32,9 @@ dot_local/bin/executable_arch-updates-check
 dot_local/bin/executable_osk-toggle
 dot_local/bin/executable_keybind-help
 dot_local/bin/executable_rofi-clipboard
-{{ else if eq .desktop "hyprland" }}
+{{ end }}
+{{ if ne .desktop "gnome" }}
 .config/dconf/**
 dot_config/dconf/**
+dot_config/gnome-extensions.txt
 {{ end }}

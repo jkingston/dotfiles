@@ -7,6 +7,7 @@ set -euo pipefail
 #
 # Example:
 #   ./test-vm.sh framework12 gnome
+#   ./test-vm.sh framework12 kde
 #   ./test-vm.sh framework12 hyprland --keep-disk
 
 RED='\033[0;31m'
@@ -26,7 +27,7 @@ KEEP_DISK=false
 if [ -z "$PROFILE" ]; then
     echo "Usage: $0 <profile> [desktop] [--keep-disk]"
     echo "  profile: framework12, minipc"
-    echo "  desktop: hyprland (default), gnome"
+    echo "  desktop: hyprland (default), gnome, kde"
     exit 1
 fi
 
@@ -290,6 +291,12 @@ if { $desktop eq "gnome" } {
     check "gnome-shell installed" "pacman -Q gnome-shell"
     check "gnome-tweaks installed" "pacman -Q gnome-tweaks"
     check "dconf config exists" "test -f ~/.config/dconf/user.conf"
+} elseif { $desktop eq "kde" } {
+    check "sddm enabled" "systemctl is-enabled sddm"
+    check "plasma installed" "pacman -Q plasma-meta"
+    check "dolphin installed" "pacman -Q dolphin"
+    check "okular installed" "pacman -Q okular"
+    check "kde portal installed" "pacman -Q xdg-desktop-portal-kde"
 } elseif { $desktop eq "hyprland" } {
     check "greetd enabled" "systemctl is-enabled greetd"
     check "hyprland installed" "pacman -Q hyprland"

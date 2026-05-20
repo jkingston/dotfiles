@@ -73,12 +73,12 @@ if [ -z "$PROFILE" ] || ! load_profile "$PROFILE"; then
         echo "  $p"
     done
     echo ""
-    echo "Available desktops: hyprland (default), gnome"
+    echo "Available desktops: hyprland (default), gnome, kde"
     exit 1
 fi
 
-if [[ "$DESKTOP" != "hyprland" && "$DESKTOP" != "gnome" ]]; then
-    error "Unknown desktop: $DESKTOP (choose hyprland or gnome)"
+if [[ "$DESKTOP" != "hyprland" && "$DESKTOP" != "gnome" && "$DESKTOP" != "kde" ]]; then
+    error "Unknown desktop: $DESKTOP (choose hyprland, gnome, or kde)"
 fi
 
 DISK="${INSTALL_DISK:-$PROFILE_DISK}"
@@ -178,11 +178,21 @@ GNOME_PACKAGES=(
     power-profiles-daemon
 )
 
+KDE_PACKAGES=(
+    plasma-meta sddm
+    dolphin dolphin-plugins
+    kio-admin kio-extras kio-fuse
+    ffmpegthumbs kdegraphics-thumbnailers
+    okular gwenview ark kcalc
+)
+
 BASE_PACKAGES=("${COMMON_PACKAGES[@]}")
 if [ "$DESKTOP" = "hyprland" ]; then
     BASE_PACKAGES+=("${HYPRLAND_PACKAGES[@]}")
 elif [ "$DESKTOP" = "gnome" ]; then
     BASE_PACKAGES+=("${GNOME_PACKAGES[@]}")
+elif [ "$DESKTOP" = "kde" ]; then
+    BASE_PACKAGES+=("${KDE_PACKAGES[@]}")
 fi
 
 # Add extra packages for this profile
@@ -291,6 +301,8 @@ LID
 
 elif [ '$DESKTOP' = 'gnome' ]; then
     systemctl enable gdm
+elif [ '$DESKTOP' = 'kde' ]; then
+    systemctl enable sddm
 fi
 
 # Laptop services
@@ -371,6 +383,15 @@ elif [ "$DESKTOP" = "gnome" ]; then
     cat > "/mnt/home/$USERNAME/.config/chezmoi/chezmoi.toml" <<CHEZCONF
 [data]
     desktop = "gnome"
+    hostname = "$HOSTNAME"
+    is_laptop = $IS_LAPTOP
+    is_vm = $IS_VM
+    gpu = "$GPU"
+CHEZCONF
+elif [ "$DESKTOP" = "kde" ]; then
+    cat > "/mnt/home/$USERNAME/.config/chezmoi/chezmoi.toml" <<CHEZCONF
+[data]
+    desktop = "kde"
     hostname = "$HOSTNAME"
     is_laptop = $IS_LAPTOP
     is_vm = $IS_VM

@@ -1,7 +1,7 @@
 font-family = Caskaydia Cove Nerd Font
 font-size = 10
 font-thicken = true
-{{ if eq .desktop "gnome" -}}
+{{ if or (eq .desktop "gnome") (eq .desktop "kde") -}}
 window-decoration = true
 {{ else -}}
 window-decoration = false
