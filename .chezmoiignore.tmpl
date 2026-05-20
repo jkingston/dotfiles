@@ -38,3 +38,7 @@ dot_local/bin/executable_rofi-clipboard
 dot_config/dconf/**
 dot_config/gnome-extensions.txt
 {{ end }}
+{{ if ne .desktop "kde" }}
+.config/kwinrc
+dot_config/kwinrc.tmpl
+{{ end }}

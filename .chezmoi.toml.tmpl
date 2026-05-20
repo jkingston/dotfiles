@@ -1,5 +1,5 @@
 [data]
-{{ $desktop := promptString "desktop (hyprland or gnome)" -}}
+{{ $desktop := promptString "desktop (hyprland, gnome, or kde)" -}}
     desktop = {{ $desktop | quote }}
     hostname = {{ promptString "hostname" | quote }}
     is_laptop = {{ promptBool "is_laptop" }}

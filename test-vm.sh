@@ -279,9 +279,16 @@ proc check {desc cmd} {
 }
 
 check "chezmoi initialized" "test -f ~/.config/chezmoi/chezmoi.toml && test -d ~/.local/share/chezmoi"
+check "chezmoi applied" "chezmoi verify"
 check "ghostty installed" "pacman -Q ghostty"
+check "neovim installed" "pacman -Q neovim"
 check "starship installed" "pacman -Q starship"
 check "bashrc exists" "test -f ~/.bashrc"
+check "bashrc managed by chezmoi" "grep -F 'starship init bash' ~/.bashrc"
+check "ghostty config exists" "test -f ~/.config/ghostty/config"
+check "starship config exists" "test -f ~/.config/starship/starship.toml"
+check "gitconfig exists" "test -f ~/.gitconfig"
+check "boot partition private" "findmnt -no OPTIONS /boot | grep -Eq '(^|,)fmask=0077(,|$)' && findmnt -no OPTIONS /boot | grep -Eq '(^|,)dmask=0077(,|$)'"
 check "NetworkManager active" "systemctl is-active NetworkManager"
 check "bluetooth enabled" "systemctl is-enabled bluetooth"
 
@@ -296,7 +303,9 @@ if { $desktop eq "gnome" } {
     check "plasma installed" "pacman -Q plasma-meta"
     check "dolphin installed" "pacman -Q dolphin"
     check "okular installed" "pacman -Q okular"
+    check "kate installed" "pacman -Q kate"
     check "kde portal installed" "pacman -Q xdg-desktop-portal-kde"
+    check "kde meta shortcut configured" "grep -F 'Meta=org.kde.plasmashell,/PlasmaShell,org.kde.PlasmaShell,activateLauncherMenu' ~/.config/kwinrc"
 } elseif { $desktop eq "hyprland" } {
     check "greetd enabled" "systemctl is-enabled greetd"
     check "hyprland installed" "pacman -Q hyprland"

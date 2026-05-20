@@ -60,7 +60,8 @@ the desktop session and its native GUI apps.
 | Archive manager | CLI `unzip` | GNOME archive tooling | `ark` |
 | Calculator | Optional/CLI | `gnome-calculator` from `gnome` | `kcalc` |
 | Terminal | `ghostty` | `ghostty` | `ghostty` |
-| Editor | `neovim` | `neovim` | `neovim` |
+| CLI editor | `neovim` | `neovim` | `neovim` |
+| GUI editor | None by default | GNOME text editor from `gnome` | `kate` |
 | Browser | `librewolf-bin` | `librewolf-bin` | `librewolf-bin` |
 
 ## Common Packages
@@ -81,8 +82,9 @@ ufw pacman-contrib bc libnotify
 Notes:
 
 - `ghostty` is common, so do not install `konsole` or `gnome-console` by default.
-- `neovim` is common, so do not install `kate` by default unless KDE becomes a
-  GUI-complete profile.
+- `neovim` is common because it is the configured personal editor.
+- `kate` is KDE-specific because KDE needs a native GUI editor for file-manager
+  workflows; it should not become common.
 - `librewolf-bin` is the shared browser for interactive installs, so do not add
   `falkon` or GNOME Web by default.
 - `unzip` is CLI archive support. It does not replace GUI archive apps like
@@ -180,6 +182,7 @@ KDE_PACKAGES=(
     gwenview
     ark
     kcalc
+    kate
 )
 ```
 
@@ -191,14 +194,17 @@ Rationale:
 - `sddm` is explicit because the installer should enable a known display
   manager.
 - `dolphin` and KIO/thumbnail packages make file management complete.
-- `okular`, `gwenview`, `ark`, and `kcalc` are small DE-native task apps.
+- `okular`, `gwenview`, `ark`, `kcalc`, and `kate` are small DE-native task
+  apps. `kate` covers opening and editing text files from Dolphin without
+  making a GUI editor common across all desktops.
+- `~/.config/kwinrc` is managed only on KDE to keep the modifier-only Meta
+  launcher shortcut explicit.
 
 Do not install by default:
 
 | Package | Why not |
 | --- | --- |
 | `konsole` | Duplicates `ghostty`. |
-| `kate` | Duplicates `neovim`; add only if KDE should be GUI-complete. |
 | `falkon` | Duplicates `librewolf-bin`. |
 | `kde-applications-meta` | Too broad. |
 | `kde-system-meta` | Less intentional than listing the exact packages. |
@@ -248,7 +254,8 @@ test -f ~/.config/dconf/user.conf
 KDE:
 
 ```bash
-pacman -Q plasma-meta sddm dolphin okular gwenview ark kcalc
+pacman -Q plasma-meta sddm dolphin okular gwenview ark kcalc kate
 pacman -Q plasma-nm bluedevil plasma-pa xdg-desktop-portal-kde
 systemctl is-enabled sddm
+grep -F 'Meta=org.kde.plasmashell,/PlasmaShell,org.kde.PlasmaShell,activateLauncherMenu' ~/.config/kwinrc
 ```

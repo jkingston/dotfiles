@@ -140,7 +140,7 @@ mkfs.ext4 -F "$ROOT_DEV"
 # --- Mount ---
 info "Mounting filesystems..."
 mount "$ROOT_DEV" /mnt
-mount --mkdir "$PART1" /mnt/boot
+mount --mkdir -o fmask=0077,dmask=0077 "$PART1" /mnt/boot
 
 # --- Package lists ---
 COMMON_PACKAGES=(
@@ -183,7 +183,7 @@ KDE_PACKAGES=(
     dolphin dolphin-plugins
     kio-admin kio-extras kio-fuse
     ffmpegthumbs kdegraphics-thumbnailers
-    okular gwenview ark kcalc
+    okular gwenview ark kcalc kate
 )
 
 BASE_PACKAGES=("${COMMON_PACKAGES[@]}")
@@ -410,6 +410,7 @@ else
 fi
 chown -R 1000:1000 "/mnt/home/$USERNAME/.config/chezmoi" "/mnt/home/$USERNAME/.local/share/chezmoi"
 arch-chroot /mnt su - "$USERNAME" -c "chezmoi apply"
+arch-chroot /mnt su - "$USERNAME" -c "chezmoi verify"
 
 # Fix ownership
 chown -R 1000:1000 "/mnt/home/$USERNAME"
