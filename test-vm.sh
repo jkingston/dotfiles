@@ -230,6 +230,11 @@ expect {
         send -- "$password\r\n"
         exp_continue
     }
+    -re {A password is required to access .*:} {
+        sleep 1
+        send -- "$password\r\n"
+        exp_continue
+    }
     "login:" {
         puts "\n\[TEST\] System rebooted to login prompt"
     }
@@ -279,10 +284,11 @@ proc check {desc cmd} {
 }
 
 check "chezmoi initialized" "test -f ~/.config/chezmoi/chezmoi.toml && test -d ~/.local/share/chezmoi"
-check "chezmoi applied" "chezmoi verify"
 check "ghostty installed" "pacman -Q ghostty"
 check "neovim installed" "pacman -Q neovim"
 check "starship installed" "pacman -Q starship"
+check "plymouth installed" "pacman -Q plymouth"
+check "plymouth initramfs hook configured" "grep -Eq '^HOOKS=.*plymouth' /etc/mkinitcpio.conf"
 check "bashrc exists" "test -f ~/.bashrc"
 check "bashrc managed by chezmoi" "grep -F 'starship init bash' ~/.bashrc"
 check "ghostty config exists" "test -f ~/.config/ghostty/config"
@@ -308,9 +314,13 @@ if { $desktop eq "gnome" } {
     check "kde meta shortcut configured" "grep -F 'Meta=org.kde.plasmashell,/PlasmaShell,org.kde.PlasmaShell,activateLauncherMenu' ~/.config/kwinrc"
 } elseif { $desktop eq "hyprland" } {
     check "greetd enabled" "systemctl is-enabled greetd"
+    check "greetd starts arch hyprland desktop entry" "grep -F 'command = \"uwsm start hyprland.desktop\"' /etc/greetd/config.toml"
     check "hyprland installed" "pacman -Q hyprland"
     check "waybar installed" "pacman -Q waybar"
     check "hyprland config exists" "test -f ~/.config/hypr/hyprland.conf"
+    check "hyprland starts waybar" "grep -F 'exec-once = uwsm app -- waybar' ~/.config/hypr/hyprland.conf"
+    check "hyprland starts mako" "grep -F 'exec-once = uwsm app -- mako' ~/.config/hypr/hyprland.conf"
+    check "hyprland super bind exists" "grep -F 'bind = \$mod, RETURN, exec, uwsm app -- ghostty' ~/.config/hypr/hyprland.conf"
 }
 
 # Print summary

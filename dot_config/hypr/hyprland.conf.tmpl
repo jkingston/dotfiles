@@ -37,10 +37,17 @@ gestures {
 }
 
 $mod = SUPER
+$mod_shift = SUPER_SHIFT
+$mod_ctrl = SUPER_CTRL
+$mod_ctrl_shift = SUPER_CTRL_SHIFT
+$mod_alt = SUPER_ALT
 
 # Autostart
 exec-once = xrdb -merge ~/.Xresources
-exec-once = swayosd-server
+exec-once = systemctl --user daemon-reload && systemctl --user enable --now hyprsunset-check.timer wallpaper-rotate.timer
+exec-once = uwsm app -- waybar
+exec-once = uwsm app -- mako
+exec-once = uwsm app -- swayosd-server
 exec-once = wl-paste --watch cliphist store
 exec-once = wl-paste --type image --watch cliphist store
 {{- if not .is_vm }}
@@ -50,15 +57,15 @@ exec-once = ~/.local/bin/hyprsunset-apply
 exec-once = swww-daemon && ~/.local/bin/wallpaper-random
 
 # App launchers
-bind = $mod, RETURN, exec, ghostty
-bind = $mod, SPACE, exec, rofi -show drun
-bind = $mod SHIFT, B, exec, librewolf
-bind = $mod SHIFT, N, exec, ghostty -e nvim
-bind = $mod SHIFT, T, exec, ghostty -e btop
-bind = $mod SHIFT, F, exec, nautilus
-bind = $mod SHIFT, D, exec, ghostty -e lazydocker
-bind = $mod SHIFT, W, exec, ghostty --class=com.floating.tui -e impala
-bind = $mod CTRL, S, exec, localsend
+bind = $mod, RETURN, exec, uwsm app -- ghostty
+bind = $mod, SPACE, exec, uwsm app -- rofi -show drun
+bind = $mod_shift, B, exec, uwsm app -- librewolf
+bind = $mod_shift, N, exec, uwsm app -- ghostty -e nvim
+bind = $mod_shift, T, exec, uwsm app -- ghostty -e btop
+bind = $mod_shift, F, exec, uwsm app -- nautilus
+bind = $mod_shift, D, exec, uwsm app -- ghostty -e lazydocker
+bind = $mod_shift, W, exec, uwsm app -- ghostty --class=com.floating.tui -e impala
+bind = $mod_ctrl, S, exec, uwsm app -- localsend
 
 # Window management
 bind = $mod, W, killactive,
@@ -66,10 +73,10 @@ bind = CTRL ALT, DELETE, exec, hyprctl dispatch closewindow address:*
 bind = $mod, T, togglefloating,
 bind = $mod, O, pin,
 bind = $mod, F, fullscreen, 0
-bind = $mod ALT, F, fullscreen, 1
+bind = $mod_alt, F, fullscreen, 1
 bind = $mod, G, togglegroup,
-bind = $mod ALT, G, moveoutofgroup,
-bind = $mod ALT, TAB, changegroupactive,
+bind = $mod_alt, G, moveoutofgroup,
+bind = $mod_alt, TAB, changegroupactive,
 
 # Focus
 bind = $mod, LEFT, movefocus, l
@@ -82,20 +89,20 @@ bind = $mod, K, movefocus, u
 bind = $mod, J, movefocus, d
 
 # Swap
-bind = $mod SHIFT, LEFT, swapwindow, l
-bind = $mod SHIFT, RIGHT, swapwindow, r
-bind = $mod SHIFT, UP, swapwindow, u
-bind = $mod SHIFT, DOWN, swapwindow, d
-bind = $mod SHIFT, H, swapwindow, l
-bind = $mod SHIFT, L, swapwindow, r
-bind = $mod SHIFT, K, swapwindow, u
-bind = $mod SHIFT, J, swapwindow, d
+bind = $mod_shift, LEFT, swapwindow, l
+bind = $mod_shift, RIGHT, swapwindow, r
+bind = $mod_shift, UP, swapwindow, u
+bind = $mod_shift, DOWN, swapwindow, d
+bind = $mod_shift, H, swapwindow, l
+bind = $mod_shift, L, swapwindow, r
+bind = $mod_shift, K, swapwindow, u
+bind = $mod_shift, J, swapwindow, d
 
 # Resize
 bind = $mod, EQUAL, resizeactive, -100 0
 bind = $mod, MINUS, resizeactive, 100 0
-bind = $mod SHIFT, EQUAL, resizeactive, 0 100
-bind = $mod SHIFT, MINUS, resizeactive, 0 -100
+bind = $mod_shift, EQUAL, resizeactive, 0 100
+bind = $mod_shift, MINUS, resizeactive, 0 -100
 
 # Workspaces
 bind = $mod, 1, workspace, 1
@@ -109,23 +116,23 @@ bind = $mod, 8, workspace, 8
 bind = $mod, 9, workspace, 9
 bind = $mod, 0, workspace, 10
 
-bind = $mod SHIFT, 1, movetoworkspace, 1
-bind = $mod SHIFT, 2, movetoworkspace, 2
-bind = $mod SHIFT, 3, movetoworkspace, 3
-bind = $mod SHIFT, 4, movetoworkspace, 4
-bind = $mod SHIFT, 5, movetoworkspace, 5
-bind = $mod SHIFT, 6, movetoworkspace, 6
-bind = $mod SHIFT, 7, movetoworkspace, 7
-bind = $mod SHIFT, 8, movetoworkspace, 8
-bind = $mod SHIFT, 9, movetoworkspace, 9
-bind = $mod SHIFT, 0, movetoworkspace, 10
+bind = $mod_shift, 1, movetoworkspace, 1
+bind = $mod_shift, 2, movetoworkspace, 2
+bind = $mod_shift, 3, movetoworkspace, 3
+bind = $mod_shift, 4, movetoworkspace, 4
+bind = $mod_shift, 5, movetoworkspace, 5
+bind = $mod_shift, 6, movetoworkspace, 6
+bind = $mod_shift, 7, movetoworkspace, 7
+bind = $mod_shift, 8, movetoworkspace, 8
+bind = $mod_shift, 9, movetoworkspace, 9
+bind = $mod_shift, 0, movetoworkspace, 10
 
 bind = $mod, TAB, workspace, e+1
-bind = $mod SHIFT, TAB, workspace, e-1
-bind = $mod CTRL, TAB, workspace, previous
+bind = $mod_shift, TAB, workspace, e-1
+bind = $mod_ctrl, TAB, workspace, previous
 
 bind = $mod, S, togglespecialworkspace, magic
-bind = $mod ALT, S, movetoworkspace, special:magic
+bind = $mod_alt, S, movetoworkspace, special:magic
 
 # Screenshots & tools
 bind = , Print, exec, grimblast edit area
@@ -135,19 +142,19 @@ bind = $mod, Print, exec, hyprpicker -a
 # Clipboard
 bind = $mod, C, exec, wl-copy
 bind = $mod, V, exec, wl-paste
-bind = $mod CTRL, V, exec, ~/.local/bin/rofi-clipboard
+bind = $mod_ctrl, V, exec, ~/.local/bin/rofi-clipboard
 
 # Utilities
-bind = $mod CTRL, I, exec, hyprlock
-bind = $mod SHIFT, SPACE, exec, pkill -SIGUSR1 waybar
-bind = $mod SHIFT, O, exec, hyprctl --batch 'dispatch setprop active opaque toggle; dispatch setprop active noblur toggle'
-bind = $mod CTRL, N, exec, makoctl dismiss
-bind = $mod CTRL SHIFT, N, exec, makoctl dismiss -a
-bind = $mod CTRL, E, exec, rofimoji
-bind = $mod CTRL, W, exec, waypaper
-bind = $mod ALT, W, exec, ~/.local/bin/wallpaper-random
+bind = $mod_ctrl, I, exec, hyprlock
+bind = $mod_shift, SPACE, exec, pkill -SIGUSR1 waybar
+bind = $mod_shift, O, exec, hyprctl --batch 'dispatch setprop active opaque toggle; dispatch setprop active noblur toggle'
+bind = $mod_ctrl, N, exec, makoctl dismiss
+bind = $mod_ctrl_shift, N, exec, makoctl dismiss -a
+bind = $mod_ctrl, E, exec, uwsm app -- rofimoji
+bind = $mod_ctrl, W, exec, uwsm app -- waypaper
+bind = $mod_alt, W, exec, ~/.local/bin/wallpaper-random
 bind = $mod, slash, exec, ~/.local/bin/keybind-help
-bind = $mod, ESCAPE, exec, rofi -show power-menu -modi power-menu:rofi-power-menu
+bind = $mod, ESCAPE, exec, uwsm app -- rofi -show power-menu -modi power-menu:rofi-power-menu
 
 # Mouse
 bind = $mod, MOUSE_DOWN, workspace, e+1

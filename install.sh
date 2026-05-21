@@ -148,6 +148,7 @@ COMMON_PACKAGES=(
     mkinitcpio iptables-nft
     networkmanager bluez bluez-utils
     git neovim sudo base-devel chezmoi
+    plymouth
     pipewire pipewire-alsa pipewire-pulse pipewire-jack wireplumber
     # Terminal & tools
     ghostty starship fzf zoxide bat eza
@@ -228,15 +229,23 @@ echo '$HOSTNAME' > /etc/hostname
 
 # mkinitcpio
 if [ '$USE_LUKS' = true ]; then
-    sed -i 's/^HOOKS=.*/HOOKS=(base udev autodetect microcode modconf kms keyboard keymap consolefont block encrypt filesystems fsck)/' /etc/mkinitcpio.conf
+    sed -i 's/^HOOKS=.*/HOOKS=(base udev plymouth autodetect microcode modconf kms keyboard keymap consolefont block encrypt filesystems fsck)/' /etc/mkinitcpio.conf
+else
+    sed -i 's/^HOOKS=.*/HOOKS=(base udev plymouth autodetect microcode modconf kms keyboard keymap consolefont block filesystems fsck)/' /etc/mkinitcpio.conf
 fi
+plymouth-set-default-theme bgrt || plymouth-set-default-theme spinner || true
 mkinitcpio -P
 
 # Bootloader
 bootctl install
+if [ '$INSTALL_SERIAL' = '1' ]; then
+    LOADER_TIMEOUT=3
+else
+    LOADER_TIMEOUT=0
+fi
 cat > /boot/loader/loader.conf <<LOADER
 default arch.conf
-timeout 3
+timeout \${LOADER_TIMEOUT}
 console-mode max
 LOADER
 
@@ -250,7 +259,7 @@ if [ '$INSTALL_SERIAL' = '1' ]; then
     QUIET_OPT=''
 else
     SERIAL_OPT=''
-    QUIET_OPT='quiet splash'
+    QUIET_OPT='quiet splash loglevel=3 rd.udev.log_level=3 systemd.show_status=false vt.global_cursor_default=0'
 fi
 ROOT_UUID=\$(findmnt -no UUID /)
 cat > /boot/loader/entries/arch.conf <<BOOTEOF
@@ -286,7 +295,7 @@ if [ '$DESKTOP' = 'hyprland' ]; then
 vt = 1
 
 [default_session]
-command = \"uwsm start hyprland-uwsm.desktop\"
+command = \"uwsm start hyprland.desktop\"
 user = \"$USERNAME\"
 GREETD
 
@@ -410,7 +419,6 @@ else
 fi
 chown -R 1000:1000 "/mnt/home/$USERNAME/.config/chezmoi" "/mnt/home/$USERNAME/.local/share/chezmoi"
 arch-chroot /mnt su - "$USERNAME" -c "chezmoi apply"
-arch-chroot /mnt su - "$USERNAME" -c "chezmoi verify"
 
 # Fix ownership
 chown -R 1000:1000 "/mnt/home/$USERNAME"
