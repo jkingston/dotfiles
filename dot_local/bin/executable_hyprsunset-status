@@ -5,29 +5,45 @@ CONFIG_DIR="$HOME/.config/hyprsunset"
 TEMP=$(cat "$CONFIG_DIR/temperature" 2>/dev/null || echo "3500")
 TZ=$(timedatectl show --property=Timezone --value 2>/dev/null || echo "Europe/London")
 COORDS=$(~/.local/bin/hyprsunset-coords)
+MODE=$(cat "$CONFIG_DIR/mode" 2>/dev/null || echo auto)
 
-# State files
-STATE_FILE="/tmp/hyprsunset-night"
-AUTO_FILE="/tmp/hyprsunset-auto"
+case "$MODE" in
+  auto|on|off) ;;
+  *) MODE="auto" ;;
+esac
 
-# Determine mode and state
-if [ -f "$AUTO_FILE" ]; then
-  if [ -f "$STATE_FILE" ]; then
-    MODE="on"
-  else
-    MODE="off"
-  fi
-else
-  MODE="auto"
-fi
+desired_state() {
+  case "$MODE" in
+    on)
+      echo on
+      ;;
+    off)
+      echo off
+      ;;
+    auto)
+      if [ "$(sunwait poll "$COORDS")" = "DAY" ]; then
+        echo off
+      else
+        echo on
+      fi
+      ;;
+  esac
+}
 
-# Current state (on/off) and icon
-if [ -f "$STATE_FILE" ]; then
+DESIRED=$(desired_state)
+
+# Current state (on/off) and icon from the compositor process.
+if pidof hyprsunset >/dev/null 2>&1; then
   ICON="󱩌"
   STATE="ON (${TEMP}K)"
 else
   ICON="󰹏"
   STATE="OFF"
+fi
+
+EXPECTED=""
+if { [ "$DESIRED" = "on" ] && [ "$STATE" = "OFF" ]; } || { [ "$DESIRED" = "off" ] && [ "$STATE" != "OFF" ]; }; then
+  EXPECTED="\\nExpected: ${DESIRED}"
 fi
 
 # Parse daylight times correctly from sunwait report
@@ -37,4 +53,4 @@ SUNRISE=$(echo "$DAYLIGHT" | awk '{print $1}')
 SUNSET=$(echo "$DAYLIGHT" | awk '{print $3}')
 
 # Output JSON for waybar
-printf '{"text": "%s", "tooltip": "Night light: %s\\nMode: %s\\n%s\\n☀️ %s  🌙 %s"}' "$ICON" "$STATE" "$MODE" "$TZ" "$SUNRISE" "$SUNSET"
+printf '{"text": "%s", "tooltip": "Night light: %s\\nMode: %s%s\\n%s\\n☀️ %s  🌙 %s"}' "$ICON" "$STATE" "$MODE" "$EXPECTED" "$TZ" "$SUNRISE" "$SUNSET"

@@ -427,7 +427,11 @@ chown -R 1000:1000 "/mnt/home/$USERNAME"
 if [ "$DESKTOP" = "hyprland" ]; then
     mkdir -p "/mnt/home/$USERNAME/Pictures/Wallpapers"
     mkdir -p "/mnt/home/$USERNAME/.config/hyprsunset"
+    info "Cloning wallpapers..."
+    arch-chroot /mnt su - "$USERNAME" -c "git clone --depth 1 https://github.com/Gingeh/wallpapers.git ~/Pictures/Wallpapers/catppuccin" || \
+        warn "Wallpaper clone failed; you can retry with: git clone https://github.com/Gingeh/wallpapers.git ~/Pictures/Wallpapers/catppuccin"
     echo "3500" > "/mnt/home/$USERNAME/.config/hyprsunset/temperature"
+    echo "auto" > "/mnt/home/$USERNAME/.config/hyprsunset/mode"
     chown -R 1000:1000 "/mnt/home/$USERNAME/Pictures"
     chown -R 1000:1000 "/mnt/home/$USERNAME/.config/hyprsunset"
 fi
@@ -441,8 +445,7 @@ info ""
 info "After reboot:"
 info "  1. Connect to wifi: nmtui"
 if [ "$DESKTOP" = "hyprland" ]; then
-    info "  2. Download wallpapers:"
-    info "     git clone https://github.com/Gingeh/wallpapers.git ~/Pictures/Wallpapers/catppuccin"
+    info "  2. Wallpapers are cloned to ~/Pictures/Wallpapers/catppuccin"
 fi
 info "  3. Authenticate GitHub CLI: gh auth login"
 info ""

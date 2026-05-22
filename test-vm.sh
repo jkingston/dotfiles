@@ -376,6 +376,7 @@ if { $desktop eq "gnome" } {
     check "hyprlock hides cursor" "grep -F 'hide_cursor = true' ~/.config/hypr/hyprlock.conf"
     check "hyprsunset config directory exists" "test -d ~/.config/hyprsunset"
     check "hyprsunset default temperature exists" "grep -Fx '3500' ~/.config/hyprsunset/temperature"
+    check "hyprsunset default mode exists" "grep -Fx 'auto' ~/.config/hyprsunset/mode"
     check "hyprsunset toggle script executable" "test -x ~/.local/bin/hyprsunset-toggle"
     check "hyprsunset apply script executable" "test -x ~/.local/bin/hyprsunset-apply"
     check "hyprsunset status script executable" "test -x ~/.local/bin/hyprsunset-status"

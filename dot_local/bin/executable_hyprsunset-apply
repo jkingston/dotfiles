@@ -1,30 +1,48 @@
 #!/usr/bin/env bash
-# Apply correct nightlight state based on current time
+# Apply desired nightlight state based on mode and current time
 # Called by timer every 15 min and on wake from sleep
-
-# Skip if manual override is active
-[ -f /tmp/hyprsunset-auto ] && exit 0
 
 CONFIG_DIR="$HOME/.config/hyprsunset"
 TEMP=$(cat "$CONFIG_DIR/temperature" 2>/dev/null || echo "3500")
 COORDS=$(~/.local/bin/hyprsunset-coords)
+MODE=$(cat "$CONFIG_DIR/mode" 2>/dev/null || echo auto)
 
-if [ "$(sunwait poll "$COORDS")" = "DAY" ]; then
-  # Daytime - disable night light
-  if [ -f /tmp/hyprsunset-night ]; then
-    rm -f /tmp/hyprsunset-night
-    pkill -x hyprsunset 2>/dev/null
-    while pgrep -x hyprsunset >/dev/null; do sleep 0.1; done
-    hyprsunset -i
-    pkill -SIGRTMIN+10 waybar || true
-  fi
+stop_hyprsunset() {
+  pkill -x hyprsunset 2>/dev/null
+  while pgrep -x hyprsunset >/dev/null; do sleep 0.1; done
+}
+
+desired_state() {
+  case "$MODE" in
+    on)
+      echo on
+      ;;
+    off)
+      echo off
+      ;;
+    auto)
+      if [ "$(sunwait poll "$COORDS")" = "DAY" ]; then
+        echo off
+      else
+        echo on
+      fi
+      ;;
+    *)
+      if [ "$(sunwait poll "$COORDS")" = "DAY" ]; then
+        echo off
+      else
+        echo on
+      fi
+      ;;
+  esac
+}
+
+if [ "$(desired_state)" = "on" ]; then
+  stop_hyprsunset
+  hyprsunset -t "$TEMP"
 else
-  # Nighttime - enable night light
-  if [ ! -f /tmp/hyprsunset-night ]; then
-    touch /tmp/hyprsunset-night
-    pkill -x hyprsunset 2>/dev/null
-    while pgrep -x hyprsunset >/dev/null; do sleep 0.1; done
-    hyprsunset -t "$TEMP"
-    pkill -SIGRTMIN+10 waybar || true
-  fi
+  stop_hyprsunset
+  hyprsunset -i
 fi
+
+pkill -SIGRTMIN+10 waybar 2>/dev/null || true
