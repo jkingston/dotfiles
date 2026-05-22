@@ -317,10 +317,106 @@ if { $desktop eq "gnome" } {
     check "greetd starts arch hyprland desktop entry" "grep -F 'command = \"uwsm start hyprland.desktop\"' /etc/greetd/config.toml"
     check "hyprland installed" "pacman -Q hyprland"
     check "waybar installed" "pacman -Q waybar"
+    check "hyprlock installed" "pacman -Q hyprlock"
+    check "hypridle installed" "pacman -Q hypridle"
+    check "hyprsunset installed" "pacman -Q hyprsunset"
+    check "sunwait installed" "pacman -Q sunwait"
+    check "rofi-wayland installed" "pacman -Q rofi-wayland"
+    check "rofi-calc installed" "pacman -Q rofi-calc"
+    check "rofi-power-menu installed" "pacman -Q rofi-power-menu"
+    check "mako installed" "pacman -Q mako"
+    check "swayosd installed" "pacman -Q swayosd"
+    check "wl-clipboard installed" "pacman -Q wl-clipboard"
+    check "cliphist installed" "pacman -Q cliphist"
+    check "swww installed" "pacman -Q swww"
+    check "waypaper installed" "pacman -Q waypaper"
+    check "wvkbd installed" "pacman -Q wvkbd"
+    check "hyprpicker installed" "pacman -Q hyprpicker"
+    check "grimblast installed" "pacman -Q grimblast-git"
+    check "playerctl installed" "pacman -Q playerctl"
+    check "brightnessctl installed" "pacman -Q brightnessctl"
+    check "bluetui installed" "pacman -Q bluetui"
+    check "pulsemixer installed" "pacman -Q pulsemixer"
+    check "impala installed" "pacman -Q impala"
+    check "bc installed for coordinate parsing" "pacman -Q bc"
+    check "libnotify installed for applet notifications" "pacman -Q libnotify"
     check "hyprland config exists" "test -f ~/.config/hypr/hyprland.conf"
+    check "hypridle config exists" "test -f ~/.config/hypr/hypridle.conf"
+    check "hyprlock config exists" "test -f ~/.config/hypr/hyprlock.conf"
+    check "mako config exists" "test -f ~/.config/mako/config"
+    check "rofi config exists" "test -f ~/.config/rofi/config.rasi"
+    check "waypaper config exists" "test -f ~/.config/waypaper/config.ini"
     check "hyprland starts waybar" "grep -F 'exec-once = uwsm app -- waybar' ~/.config/hypr/hyprland.conf"
     check "hyprland starts mako" "grep -F 'exec-once = uwsm app -- mako' ~/.config/hypr/hyprland.conf"
+    check "hyprland starts swayosd" "grep -F 'exec-once = uwsm app -- swayosd-server' ~/.config/hypr/hyprland.conf"
+    check "hyprland starts clipboard text history" "grep -F 'exec-once = wl-paste --watch cliphist store' ~/.config/hypr/hyprland.conf"
+    check "hyprland starts clipboard image history" "grep -F 'exec-once = wl-paste --type image --watch cliphist store' ~/.config/hypr/hyprland.conf"
+    check "hyprland starts wallpaper daemon" "grep -F 'exec-once = swww-daemon && ~/.local/bin/wallpaper-random' ~/.config/hypr/hyprland.conf"
+    check "hyprland enables environment timers" "grep -F 'exec-once = systemctl --user daemon-reload && systemctl --user enable --now hyprsunset-check.timer wallpaper-rotate.timer' ~/.config/hypr/hyprland.conf"
+    check "hyprland applies nightlight on session start" "grep -F 'exec-once = ~/.local/bin/hyprsunset-apply' ~/.config/hypr/hyprland.conf"
     check "hyprland super bind exists" "grep -F 'bind = \$mod, RETURN, exec, uwsm app -- ghostty' ~/.config/hypr/hyprland.conf"
+    check "hyprland launcher bind exists" "grep -F 'bind = \$mod, SPACE, exec, uwsm app -- rofi -show drun' ~/.config/hypr/hyprland.conf"
+    check "hyprland clipboard bind exists" "grep -F 'bind = \$mod_ctrl, V, exec, ~/.local/bin/rofi-clipboard' ~/.config/hypr/hyprland.conf"
+    check "hyprland lock bind exists" "grep -F 'bind = \$mod_ctrl, I, exec, hyprlock' ~/.config/hypr/hyprland.conf"
+    check "hyprland screenshot bind exists" "grep -F 'bind = , Print, exec, grimblast edit area' ~/.config/hypr/hyprland.conf"
+    check "hyprland colour picker bind exists" "grep -F 'bind = \$mod, Print, exec, hyprpicker -a' ~/.config/hypr/hyprland.conf"
+    check "hyprland wallpaper bind exists" "grep -F 'bind = \$mod_alt, W, exec, ~/.local/bin/wallpaper-random' ~/.config/hypr/hyprland.conf"
+    check "hyprland keybind help bind exists" "grep -F 'bind = \$mod, slash, exec, ~/.local/bin/keybind-help' ~/.config/hypr/hyprland.conf"
+    check "hyprland power menu bind exists" "grep -F 'bind = \$mod, ESCAPE, exec, uwsm app -- ~/.local/bin/hypr-power-menu' ~/.config/hypr/hyprland.conf"
+    check "hyprland media keys use swayosd" "grep -F 'swayosd-client --output-volume raise' ~/.config/hypr/hyprland.conf"
+    check "hyprland media keys use playerctl" "grep -F 'playerctl play-pause' ~/.config/hypr/hyprland.conf"
+    check "hypridle locks before suspend" "grep -F 'before_sleep_cmd = loginctl lock-session' ~/.config/hypr/hypridle.conf"
+    check "hypridle starts hyprlock once" "grep -F 'lock_cmd = pidof hyprlock || hyprlock' ~/.config/hypr/hypridle.conf"
+    check "hypridle reapplies nightlight after wake" "grep -F '~/.local/bin/hyprsunset-apply' ~/.config/hypr/hypridle.conf"
+    check "hypridle locks after idle timeout" "grep -F 'timeout = 300' ~/.config/hypr/hypridle.conf"
+    check "hypridle turns display off after lock" "grep -F 'timeout = 330' ~/.config/hypr/hypridle.conf"
+    check "hypridle suspends later" "grep -F 'systemctl suspend' ~/.config/hypr/hypridle.conf"
+    check "hyprlock uses screenshot background" "grep -F 'path = screenshot' ~/.config/hypr/hyprlock.conf"
+    check "hyprlock blurs background" "grep -F 'blur_passes = 3' ~/.config/hypr/hyprlock.conf"
+    check "hyprlock hides cursor" "grep -F 'hide_cursor = true' ~/.config/hypr/hyprlock.conf"
+    check "hyprsunset config directory exists" "test -d ~/.config/hyprsunset"
+    check "hyprsunset default temperature exists" "grep -Fx '3500' ~/.config/hyprsunset/temperature"
+    check "hyprsunset toggle script executable" "test -x ~/.local/bin/hyprsunset-toggle"
+    check "hyprsunset apply script executable" "test -x ~/.local/bin/hyprsunset-apply"
+    check "hyprsunset status script executable" "test -x ~/.local/bin/hyprsunset-status"
+    check "hyprsunset temp picker executable" "test -x ~/.local/bin/hyprsunset-temp-picker"
+    check "hyprsunset coords script executable" "test -x ~/.local/bin/hyprsunset-coords"
+    check "hyprsunset settings script executable" "test -x ~/.local/bin/hyprsunset-settings"
+    check "arch updates check script executable" "test -x ~/.local/bin/arch-updates-check"
+    check "arch update menu script executable" "test -x ~/.local/bin/arch-update-menu"
+    check "arch update script executable" "test -x ~/.local/bin/arch-update"
+    check "sysmon script executable" "test -x ~/.local/bin/waybar-sysmon"
+    check "wallpaper random script executable" "test -x ~/.local/bin/wallpaper-random"
+    check "osk toggle script executable" "test -x ~/.local/bin/osk-toggle"
+    check "clipboard picker script executable" "test -x ~/.local/bin/rofi-clipboard"
+    check "keybind help script executable" "test -x ~/.local/bin/keybind-help"
+    check "power menu script executable" "test -x ~/.local/bin/hypr-power-menu"
+    check "power menu lock action uses hyprlock" "grep -F 'pidof hyprlock >/dev/null 2>&1 || hyprlock' ~/.local/bin/hypr-power-menu"
+    check "waybar nightlight module configured" "grep -F '\"custom/nightlight\"' ~/.config/waybar/config"
+    check "waybar nightlight returns json" "grep -F '\"return-type\": \"json\"' ~/.config/waybar/config"
+    check "waybar nightlight status command configured" "grep -F '\"exec\": \"~/.local/bin/hyprsunset-status\"' ~/.config/waybar/config"
+    check "waybar nightlight left click configured" "grep -F '\"on-click\": \"~/.local/bin/hyprsunset-toggle\"' ~/.config/waybar/config"
+    check "waybar nightlight right click configured" "grep -F '\"on-click-right\": \"~/.local/bin/hyprsunset-settings\"' ~/.config/waybar/config"
+    check "waybar nightlight signal configured" "grep -F '\"signal\": 10' ~/.config/waybar/config"
+    check "waybar updates module configured" "grep -F '\"custom/updates\"' ~/.config/waybar/config"
+    check "waybar updates command configured" "grep -F '\"exec\": \"~/.local/bin/arch-updates-check\"' ~/.config/waybar/config"
+    check "waybar updates menu configured" "grep -F '\"on-click-right\": \"~/.local/bin/arch-update-menu\"' ~/.config/waybar/config"
+    check "waybar updates signal configured" "grep -F '\"signal\": 12' ~/.config/waybar/config"
+    check "waybar sysmon module configured" "grep -F '\"custom/sysmon\"' ~/.config/waybar/config"
+    check "waybar sysmon command configured" "grep -F '\"exec\": \"~/.local/bin/waybar-sysmon\"' ~/.config/waybar/config"
+    check "waybar idle inhibitor configured" "grep -F '\"idle_inhibitor\"' ~/.config/waybar/config"
+    check "waybar bluetooth applet configured" "grep -F '\"on-click\": \"ghostty --class=com.floating.tui -e bluetui\"' ~/.config/waybar/config"
+    check "waybar network applet configured" "grep -F '\"on-click\": \"ghostty --class=com.floating.tui -e impala\"' ~/.config/waybar/config"
+    check "waybar audio applet configured" "grep -F '\"on-click\": \"ghostty --class=com.floating.tui -e pulsemixer\"' ~/.config/waybar/config"
+    check "waybar battery opens power menu" "grep -F '\"on-click\": \"~/.local/bin/hypr-power-menu\"' ~/.config/waybar/config"
+    check "hyprsunset user service installed" "test -f ~/.config/systemd/user/hyprsunset-check.service"
+    check "hyprsunset user timer installed" "test -f ~/.config/systemd/user/hyprsunset-check.timer"
+    check "hyprsunset user timer enabled" "systemctl --user is-enabled hyprsunset-check.timer"
+    check "wallpaper rotate service installed" "test -f ~/.config/systemd/user/wallpaper-rotate.service"
+    check "wallpaper rotate timer installed" "test -f ~/.config/systemd/user/wallpaper-rotate.timer"
+    check "hyprsunset coords command runs" "~/.local/bin/hyprsunset-coords | grep -Eq '^\[.0-9]+\[NS] \[.0-9]+\[EW]$'"
+    check "hyprsunset status emits waybar json" "~/.local/bin/hyprsunset-status | jq -e 'has(\"text\") and has(\"tooltip\")'"
+    check "waybar sysmon emits waybar json" "~/.local/bin/waybar-sysmon | jq -e 'has(\"text\") and has(\"tooltip\")'"
 }
 
 # Print summary
@@ -377,8 +473,28 @@ BOOT_QEMU_ARGS=(
 "$EXPECT_CMD" "$EXPECT_SCRIPT" "$PROFILE" "$DESKTOP" "$VM_PASSWORD" "$SSH_PORT" "$QEMU_CMD" "${QEMU_ARGS[@]}" -- "${BOOT_QEMU_ARGS[@]}" &
 EXPECT_PID=$!
 
-# Forward signals to clean up
-trap 'kill $EXPECT_PID 2>/dev/null; rm -f "$EXPECT_SCRIPT"; [ "$KEEP_DISK" = false ] && rm -f "$DISK_IMG"' EXIT INT TERM
+cleanup() {
+    local status=$?
+
+    if kill -0 "$EXPECT_PID" 2>/dev/null; then
+        kill "$EXPECT_PID" 2>/dev/null || true
+    fi
+
+    rm -f "$EXPECT_SCRIPT"
+    if [ "$KEEP_DISK" = false ]; then
+        rm -f "$DISK_IMG"
+    fi
+
+    return "$status"
+}
+
+handle_signal() {
+    cleanup
+    exit 130
+}
+
+trap cleanup EXIT
+trap handle_signal INT TERM
 
 wait $EXPECT_PID
 EXIT_CODE=$?

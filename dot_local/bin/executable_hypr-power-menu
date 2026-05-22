@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+choice=$(printf '%s\n' "Lock" "Suspend" "Log out" "Reboot" "Shut down" | rofi -dmenu -p "Power menu") || exit 0
+
+confirm() {
+  local action="$1"
+  local answer
+
+  answer=$(printf '%s\n' "Yes, $action" "No, cancel" | rofi -dmenu -p "Confirm") || return 1
+  [ "$answer" = "Yes, $action" ]
+}
+
+case "$choice" in
+  Lock)
+    pidof hyprlock >/dev/null 2>&1 || hyprlock
+    ;;
+  Suspend)
+    systemctl suspend
+    ;;
+  "Log out")
+    confirm "log out" || exit 0
+    loginctl terminate-session "${XDG_SESSION_ID:-}"
+    ;;
+  Reboot)
+    confirm "reboot" || exit 0
+    systemctl reboot
+    ;;
+  "Shut down")
+    confirm "shut down" || exit 0
+    systemctl poweroff
+    ;;
+esac

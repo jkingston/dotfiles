@@ -1,0 +1,754 @@
+#!/usr/bin/env bash
+set -u
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+MODE="${1:---all}"
+
+TOTAL=0
+FAILED=0
+CURRENT_GROUP=""
+
+ORIG_NIGHT_EXISTS=0
+ORIG_AUTO_EXISTS=0
+[ -e /tmp/hyprsunset-night ] && ORIG_NIGHT_EXISTS=1
+[ -e /tmp/hyprsunset-auto ] && ORIG_AUTO_EXISTS=1
+
+restore_global_state() {
+  if [ "$ORIG_NIGHT_EXISTS" -eq 1 ]; then
+    touch /tmp/hyprsunset-night
+  else
+    rm -f /tmp/hyprsunset-night
+  fi
+
+  if [ "$ORIG_AUTO_EXISTS" -eq 1 ]; then
+    touch /tmp/hyprsunset-auto
+  else
+    rm -f /tmp/hyprsunset-auto
+  fi
+}
+trap restore_global_state EXIT
+
+group() {
+  CURRENT_GROUP="$1"
+  printf '\n%s\n' "$CURRENT_GROUP"
+}
+
+pass() {
+  TOTAL=$((TOTAL + 1))
+  printf '  [PASS] %s\n' "$1"
+}
+
+fail() {
+  TOTAL=$((TOTAL + 1))
+  FAILED=$((FAILED + 1))
+  printf '  [FAIL] %s\n' "$1"
+  if [ -n "${2:-}" ]; then
+    printf '         %s\n' "$2"
+  fi
+}
+
+assert_file_exists() {
+  [ -e "$1" ]
+}
+
+assert_file_absent() {
+  [ ! -e "$1" ]
+}
+
+assert_log_contains() {
+  local pattern="$1"
+  grep -F -- "$pattern" "$FAKE_LOG" >/dev/null 2>&1
+}
+
+assert_log_not_contains() {
+  local pattern="$1"
+  ! grep -F -- "$pattern" "$FAKE_LOG" >/dev/null 2>&1
+}
+
+assert_repo_contains() {
+  local file="$1"
+  local pattern="$2"
+  grep -F -- "$pattern" "$ROOT_DIR/$file" >/dev/null 2>&1
+}
+
+run_case() {
+  local name="$1"
+  shift
+  reset_case
+  if "$@"; then
+    pass "$name"
+  else
+    fail "$name" "See ${FAKE_LOG#$ROOT_DIR/} for the command trace from the last case."
+  fi
+}
+
+make_fake_bin() {
+  local bin="$1"
+  local body="$2"
+  printf '%s\n' "$body" > "$FAKE_BIN/$bin"
+  chmod +x "$FAKE_BIN/$bin"
+}
+
+setup_case() {
+  TEST_TMP="$(mktemp -d "${TMPDIR:-/tmp}/hyprsunset-tests.XXXXXX")"
+  TEST_HOME="$TEST_TMP/home"
+  FAKE_BIN="$TEST_TMP/bin"
+  FAKE_LOG="$TEST_TMP/fake.log"
+  ROFI_QUEUE="$TEST_TMP/rofi.queue"
+  mkdir -p "$TEST_HOME/.config/hyprsunset" "$TEST_HOME/.local/bin" "$TEST_HOME/Pictures/Wallpapers" "$FAKE_BIN"
+  : > "$FAKE_LOG"
+  echo 3500 > "$TEST_HOME/.config/hyprsunset/temperature"
+  touch "$TEST_HOME/Pictures/Wallpapers/test.png"
+
+  cat > "$TEST_HOME/.local/bin/hyprsunset-coords" <<'SH'
+#!/usr/bin/env bash
+echo "51.5N 0.1W"
+SH
+  chmod +x "$TEST_HOME/.local/bin/hyprsunset-coords"
+
+  make_fake_bin hyprsunset '#!/usr/bin/env bash
+printf "hyprsunset %s\n" "$*" >> "$FAKE_LOG"
+'
+  make_fake_bin notify-send '#!/usr/bin/env bash
+printf "notify-send %s\n" "$*" >> "$FAKE_LOG"
+'
+  make_fake_bin pkill '#!/usr/bin/env bash
+printf "pkill %s\n" "$*" >> "$FAKE_LOG"
+if [ "${FAKE_PKILL_FAIL_WAYBAR:-0}" = "1" ] && printf "%s\n" "$*" | grep -F "waybar" >/dev/null 2>&1; then
+  exit 1
+fi
+exit 0
+'
+  make_fake_bin pgrep '#!/usr/bin/env bash
+printf "pgrep %s\n" "$*" >> "$FAKE_LOG"
+if [ "${FAKE_PGREP_MATCH:-}" = "${*: -1}" ]; then
+  echo 1234
+  exit 0
+fi
+exit 1
+'
+  make_fake_bin sunwait '#!/usr/bin/env bash
+printf "sunwait %s\n" "$*" >> "$FAKE_LOG"
+if [ "${1:-}" = "poll" ]; then
+  echo "${FAKE_SUNWAIT_POLL:-DAY}"
+elif [ "${1:-}" = "report" ]; then
+  printf "%s\n" "${FAKE_SUNWAIT_REPORT:-Day with twilight: 08:03 to 16:03}"
+fi
+'
+  make_fake_bin timedatectl '#!/usr/bin/env bash
+if [ "${FAKE_TIME_DATE_CTL_FAIL:-0}" = "1" ]; then
+  exit 1
+fi
+echo "${FAKE_TIMEZONE:-Europe/London}"
+'
+  make_fake_bin rofi '#!/usr/bin/env bash
+printf "rofi %s\n" "$*" >> "$FAKE_LOG"
+stdin="$(cat)"
+if [ -n "$stdin" ]; then
+  printf "rofi-stdin %s\n" "$stdin" >> "$FAKE_LOG"
+fi
+if [ ! -s "$ROFI_QUEUE" ]; then
+  exit 1
+fi
+line="$(sed -n "1p" "$ROFI_QUEUE")"
+sed -n "2,\$p" "$ROFI_QUEUE" > "$ROFI_QUEUE.next"
+mv "$ROFI_QUEUE.next" "$ROFI_QUEUE"
+[ "$line" = "__ESC__" ] && exit 1
+printf "%s\n" "$line"
+'
+  make_fake_bin grep '#!/usr/bin/env bash
+if [ "${1:-}" = "-oP" ]; then
+  perl -ne "while (/(\\d+)(?=K)/g) { print \"\$1\n\" }"
+  exit 0
+fi
+exec /usr/bin/grep "$@"
+'
+  make_fake_bin flock '#!/usr/bin/env bash
+printf "flock %s\n" "$*" >> "$FAKE_LOG"
+exit 0
+'
+  make_fake_bin checkupdates '#!/usr/bin/env bash
+printf "checkupdates %s\n" "$*" >> "$FAKE_LOG"
+if [ -n "${FAKE_CHECKUPDATES:-}" ]; then
+  printf "%s\n" "$FAKE_CHECKUPDATES"
+fi
+'
+  make_fake_bin yay '#!/usr/bin/env bash
+printf "yay %s\n" "$*" >> "$FAKE_LOG"
+if [ "${1:-}" = "-Qua" ] && [ -n "${FAKE_YAY_UPDATES:-}" ]; then
+  printf "%s\n" "$FAKE_YAY_UPDATES"
+fi
+'
+  make_fake_bin ps '#!/usr/bin/env bash
+printf "ps %s\n" "$*" >> "$FAKE_LOG"
+case "$*" in
+  *"--sort=-pcpu"*) printf "22.5 compile\n3.0 idle\n" ;;
+  *"--sort=-rss"*) printf "2097152 browser\n1048576 shell\n" ;;
+esac
+'
+  make_fake_bin awk '#!/usr/bin/env bash
+if printf "%s\n" "$*" | grep -F "/proc/meminfo" >/dev/null 2>&1; then
+  echo "8000000 4000000"
+else
+  /usr/bin/awk "$@"
+fi
+'
+  make_fake_bin swww '#!/usr/bin/env bash
+printf "swww %s\n" "$*" >> "$FAKE_LOG"
+'
+  make_fake_bin hyprctl '#!/usr/bin/env bash
+printf "hyprctl %s\n" "$*" >> "$FAKE_LOG"
+if [ "${1:-}" = "cursorpos" ]; then
+  echo "100,200"
+elif [ "${1:-}" = "-j" ] && [ "${2:-}" = "binds" ]; then
+  printf "%s\n" "[{\"modmask\":64,\"key\":\"Return\",\"dispatcher\":\"exec\",\"arg\":\"uwsm app -- ghostty\"},{\"modmask\":65,\"key\":\"B\",\"dispatcher\":\"exec\",\"arg\":\"uwsm app -- librewolf\"}]"
+fi
+'
+  make_fake_bin shuf '#!/usr/bin/env bash
+sed -n "1p"
+'
+  make_fake_bin wvkbd-mobintl '#!/usr/bin/env bash
+printf "wvkbd-mobintl %s\n" "$*" >> "$FAKE_LOG"
+'
+  make_fake_bin cliphist '#!/usr/bin/env bash
+printf "cliphist %s\n" "$*" >> "$FAKE_LOG"
+case "${1:-}" in
+  list) echo "clip-entry" ;;
+  decode) cat ;;
+esac
+'
+  make_fake_bin wl-copy '#!/usr/bin/env bash
+input="$(cat)"
+printf "wl-copy %s\n%s\n" "$*" "$input" >> "$FAKE_LOG"
+'
+  make_fake_bin pidof '#!/usr/bin/env bash
+printf "pidof %s\n" "$*" >> "$FAKE_LOG"
+if [ "${FAKE_PIDOF_MATCH:-}" = "${*: -1}" ]; then
+  echo 1234
+  exit 0
+fi
+exit 1
+'
+  make_fake_bin hyprlock '#!/usr/bin/env bash
+printf "hyprlock %s\n" "$*" >> "$FAKE_LOG"
+'
+  make_fake_bin systemctl '#!/usr/bin/env bash
+printf "systemctl %s\n" "$*" >> "$FAKE_LOG"
+'
+  make_fake_bin loginctl '#!/usr/bin/env bash
+printf "loginctl %s\n" "$*" >> "$FAKE_LOG"
+'
+
+  export HOME="$TEST_HOME"
+  export PATH="$FAKE_BIN:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin"
+  export FAKE_LOG ROFI_QUEUE
+  unset FAKE_PKILL_FAIL_WAYBAR FAKE_PGREP_MATCH FAKE_PIDOF_MATCH FAKE_SUNWAIT_POLL FAKE_SUNWAIT_REPORT FAKE_TIME_DATE_CTL_FAIL FAKE_TIMEZONE FAKE_CHECKUPDATES FAKE_YAY_UPDATES
+}
+
+reset_case() {
+  rm -f /tmp/hyprsunset-night /tmp/hyprsunset-auto
+  setup_case
+}
+
+run_script() {
+  bash "$ROOT_DIR/$1"
+}
+
+run_script_capture() {
+  bash "$ROOT_DIR/$1" 2>"$TEST_TMP/stderr"
+}
+
+test_toggle_auto_to_on() {
+  run_script dot_local/bin/executable_hyprsunset-toggle &&
+    assert_file_exists /tmp/hyprsunset-auto &&
+    assert_file_exists /tmp/hyprsunset-night &&
+    assert_log_contains "hyprsunset -t 3500" &&
+    assert_log_contains "notify-send -t 1500 Night Light: On" &&
+    assert_log_contains "pkill -SIGRTMIN+10 waybar"
+}
+
+test_toggle_on_to_off() {
+  touch /tmp/hyprsunset-auto /tmp/hyprsunset-night
+  run_script dot_local/bin/executable_hyprsunset-toggle &&
+    assert_file_exists /tmp/hyprsunset-auto &&
+    assert_file_absent /tmp/hyprsunset-night &&
+    assert_log_contains "hyprsunset -i" &&
+    assert_log_contains "notify-send -t 1500 Night Light: Off"
+}
+
+test_toggle_off_to_auto_day() {
+  export FAKE_SUNWAIT_POLL=DAY
+  touch /tmp/hyprsunset-auto
+  run_script dot_local/bin/executable_hyprsunset-toggle &&
+    assert_file_absent /tmp/hyprsunset-auto &&
+    assert_file_absent /tmp/hyprsunset-night &&
+    assert_log_not_contains "hyprsunset -t" &&
+    assert_log_contains "notify-send -t 1500 Night Light: Auto"
+}
+
+test_toggle_off_to_auto_night() {
+  export FAKE_SUNWAIT_POLL=NIGHT
+  touch /tmp/hyprsunset-auto
+  run_script dot_local/bin/executable_hyprsunset-toggle &&
+    assert_file_absent /tmp/hyprsunset-auto &&
+    assert_file_exists /tmp/hyprsunset-night &&
+    assert_log_contains "hyprsunset -t 3500"
+}
+
+test_toggle_uses_configured_temp() {
+  echo 2800 > "$HOME/.config/hyprsunset/temperature"
+  run_script dot_local/bin/executable_hyprsunset-toggle &&
+    assert_log_contains "hyprsunset -t 2800"
+}
+
+test_toggle_falls_back_to_default_temp() {
+  rm -f "$HOME/.config/hyprsunset/temperature"
+  run_script dot_local/bin/executable_hyprsunset-toggle &&
+    assert_log_contains "hyprsunset -t 3500"
+}
+
+test_toggle_waybar_absent_does_not_fail() {
+  export FAKE_PKILL_FAIL_WAYBAR=1
+  run_script dot_local/bin/executable_hyprsunset-toggle
+}
+
+test_apply_manual_override_noop() {
+  touch /tmp/hyprsunset-auto
+  run_script dot_local/bin/executable_hyprsunset-apply &&
+    assert_log_not_contains "sunwait" &&
+    assert_log_not_contains "hyprsunset"
+}
+
+test_apply_day_clears_night() {
+  export FAKE_SUNWAIT_POLL=DAY
+  touch /tmp/hyprsunset-night
+  run_script dot_local/bin/executable_hyprsunset-apply &&
+    assert_file_absent /tmp/hyprsunset-night &&
+    assert_log_contains "hyprsunset -i" &&
+    assert_log_contains "pkill -SIGRTMIN+10 waybar"
+}
+
+test_apply_day_already_off_noop() {
+  export FAKE_SUNWAIT_POLL=DAY
+  run_script dot_local/bin/executable_hyprsunset-apply &&
+    assert_file_absent /tmp/hyprsunset-night &&
+    assert_log_not_contains "hyprsunset"
+}
+
+test_apply_night_enables() {
+  export FAKE_SUNWAIT_POLL=NIGHT
+  run_script dot_local/bin/executable_hyprsunset-apply &&
+    assert_file_exists /tmp/hyprsunset-night &&
+    assert_log_contains "hyprsunset -t 3500"
+}
+
+test_apply_night_already_on_noop() {
+  export FAKE_SUNWAIT_POLL=NIGHT
+  touch /tmp/hyprsunset-night
+  run_script dot_local/bin/executable_hyprsunset-apply &&
+    assert_log_not_contains "hyprsunset"
+}
+
+status_json() {
+  bash "$ROOT_DIR/dot_local/bin/executable_hyprsunset-status" > "$TEST_TMP/status.json"
+  jq -e . "$TEST_TMP/status.json" >/dev/null
+}
+
+test_status_auto_off_json() {
+  status_json &&
+    jq -e '.tooltip | contains("Mode: auto") and contains("Night light: OFF")' "$TEST_TMP/status.json" >/dev/null
+}
+
+test_status_auto_on_json() {
+  touch /tmp/hyprsunset-night
+  status_json &&
+    jq -e '.tooltip | contains("Mode: auto") and contains("ON (3500K)")' "$TEST_TMP/status.json" >/dev/null
+}
+
+test_status_forced_on_json() {
+  touch /tmp/hyprsunset-auto /tmp/hyprsunset-night
+  status_json &&
+    jq -e '.tooltip | contains("Mode: on")' "$TEST_TMP/status.json" >/dev/null
+}
+
+test_status_forced_off_json() {
+  touch /tmp/hyprsunset-auto
+  status_json &&
+    jq -e '.tooltip | contains("Mode: off")' "$TEST_TMP/status.json" >/dev/null
+}
+
+test_status_malformed_sunwait_still_json() {
+  export FAKE_SUNWAIT_REPORT="not daylight data"
+  status_json
+}
+
+test_status_timedatectl_fallback() {
+  export FAKE_TIME_DATE_CTL_FAIL=1
+  status_json &&
+    jq -e '.tooltip | contains("Europe/London")' "$TEST_TMP/status.json" >/dev/null
+}
+
+test_picker_first_selection_previews_without_save() {
+  printf 'Warm (2500K)\n__ESC__\n' > "$ROFI_QUEUE"
+  run_script dot_local/bin/executable_hyprsunset-temp-picker &&
+    assert_log_contains "hyprsunset -t 2500" &&
+    [ "$(cat "$HOME/.config/hyprsunset/temperature")" = "3500" ]
+}
+
+test_picker_same_selection_confirms() {
+  printf 'Warm (2500K)\nWarm (2500K)\n' > "$ROFI_QUEUE"
+  run_script dot_local/bin/executable_hyprsunset-temp-picker &&
+    assert_log_contains "hyprsunset -t 2500" &&
+    [ "$(cat "$HOME/.config/hyprsunset/temperature")" = "2500" ] &&
+    assert_log_contains "notify-send -t 1500 Temperature: 2500K"
+}
+
+test_picker_different_selections_preview_each() {
+  printf 'Warm (2500K)\nCozy (3000K)\n__ESC__\n' > "$ROFI_QUEUE"
+  run_script dot_local/bin/executable_hyprsunset-temp-picker &&
+    assert_log_contains "hyprsunset -t 2500" &&
+    assert_log_contains "hyprsunset -t 3000"
+}
+
+test_picker_cancel_restores_previous_when_on() {
+  touch /tmp/hyprsunset-night
+  printf 'Warm (2500K)\n__ESC__\n' > "$ROFI_QUEUE"
+  run_script dot_local/bin/executable_hyprsunset-temp-picker &&
+    assert_log_contains "hyprsunset -t 2500" &&
+    assert_log_contains "hyprsunset -t 3500" &&
+    [ "$(cat "$HOME/.config/hyprsunset/temperature")" = "3500" ]
+}
+
+test_picker_cancel_inactive_does_not_restore() {
+  printf 'Warm (2500K)\n__ESC__\n' > "$ROFI_QUEUE"
+  run_script dot_local/bin/executable_hyprsunset-temp-picker &&
+    [ "$(grep -F "hyprsunset -t" "$FAKE_LOG" | wc -l | tr -d " ")" = "1" ]
+}
+
+test_picker_missing_config_dir_saves() {
+  rm -rf "$HOME/.config/hyprsunset"
+  printf 'Warm (2500K)\nWarm (2500K)\n' > "$ROFI_QUEUE"
+  run_script_capture dot_local/bin/executable_hyprsunset-temp-picker &&
+    [ -f "$HOME/.config/hyprsunset/temperature" ] &&
+    [ "$(cat "$HOME/.config/hyprsunset/temperature")" = "2500" ]
+}
+
+test_settings_launches_picker_and_signals_waybar() {
+  cp "$ROOT_DIR/dot_local/bin/executable_hyprsunset-temp-picker" "$HOME/.local/bin/hyprsunset-temp-picker"
+  chmod +x "$HOME/.local/bin/hyprsunset-temp-picker"
+  printf 'Warm (2500K)\nWarm (2500K)\n' > "$ROFI_QUEUE"
+  run_script dot_local/bin/executable_hyprsunset-settings &&
+    [ "$(cat "$HOME/.config/hyprsunset/temperature")" = "2500" ] &&
+    assert_log_contains "pkill -SIGRTMIN+10 waybar"
+}
+
+test_true_highlight_preview_before_confirm() {
+  printf 'Mild (4500K)\nMild (4500K)\n' > "$ROFI_QUEUE"
+  run_script dot_local/bin/executable_hyprsunset-temp-picker &&
+    assert_log_contains "hyprsunset -t 2500" &&
+    assert_log_contains "hyprsunset -t 3000" &&
+    assert_log_contains "hyprsunset -t 4500"
+}
+
+json_output_from() {
+  bash "$ROOT_DIR/$1" > "$TEST_TMP/output.json"
+  jq -e . "$TEST_TMP/output.json" >/dev/null
+}
+
+test_updates_check_disabled_json() {
+  mkdir -p "$HOME/.cache/arch-updates"
+  touch "$HOME/.cache/arch-updates/disabled"
+  json_output_from dot_local/bin/executable_arch-updates-check &&
+    jq -e '.class == "disabled" and (.tooltip | contains("disabled"))' "$TEST_TMP/output.json" >/dev/null
+}
+
+test_updates_check_counts_official_and_aur() {
+  export FAKE_CHECKUPDATES="linux 1 -> 2
+pacman 1 -> 2"
+  export FAKE_YAY_UPDATES="aurpkg 1 -> 2"
+  json_output_from dot_local/bin/executable_arch-updates-check &&
+    jq -e '.text | contains("3")' "$TEST_TMP/output.json" >/dev/null &&
+    jq -e '.tooltip | contains("2 official, 1 AUR")' "$TEST_TMP/output.json" >/dev/null
+}
+
+test_updates_check_uses_fresh_cache() {
+  mkdir -p "$HOME/.cache/arch-updates"
+  printf '%s\n' '{"text":"cached","tooltip":"cached","class":"cached"}' > "$HOME/.cache/arch-updates/status.json"
+  date +%s > "$HOME/.cache/arch-updates/last-check"
+  json_output_from dot_local/bin/executable_arch-updates-check &&
+    jq -e '.text == "cached"' "$TEST_TMP/output.json" >/dev/null &&
+    assert_log_not_contains "checkupdates"
+}
+
+test_update_menu_check_now() {
+  mkdir -p "$HOME/.cache/arch-updates"
+  touch "$HOME/.cache/arch-updates/last-check"
+  printf 'Check now\n' > "$ROFI_QUEUE"
+  run_script dot_local/bin/executable_arch-update-menu &&
+    [ ! -f "$HOME/.cache/arch-updates/last-check" ] &&
+    assert_log_contains "pkill -RTMIN+12 waybar" &&
+    assert_log_contains "notify-send -t 2000 Checking for updates..."
+}
+
+test_update_menu_toggle_disables_and_signals() {
+  printf 'Toggle auto-check\n' > "$ROFI_QUEUE"
+  run_script dot_local/bin/executable_arch-update-menu &&
+    [ -f "$HOME/.cache/arch-updates/disabled" ] &&
+    assert_log_contains "pkill -RTMIN+12 waybar" &&
+    assert_log_contains "notify-send -t 2000 Update checking disabled"
+}
+
+test_update_menu_toggle_enables_and_signals() {
+  mkdir -p "$HOME/.cache/arch-updates"
+  touch "$HOME/.cache/arch-updates/disabled"
+  printf 'Toggle auto-check\n' > "$ROFI_QUEUE"
+  run_script dot_local/bin/executable_arch-update-menu &&
+    [ ! -f "$HOME/.cache/arch-updates/disabled" ] &&
+    assert_log_contains "pkill -RTMIN+12 waybar" &&
+    assert_log_contains "notify-send -t 2000 Update checking enabled"
+}
+
+test_sysmon_emits_waybar_json() {
+  json_output_from dot_local/bin/executable_waybar-sysmon &&
+    jq -e '.text and (.tooltip | contains("compile") and contains("browser"))' "$TEST_TMP/output.json" >/dev/null
+}
+
+test_osk_toggle_starts_when_absent() {
+  run_script dot_local/bin/executable_osk-toggle &&
+    assert_log_contains "pgrep -x wvkbd-mobintl" &&
+    assert_log_contains "wvkbd-mobintl --landscape --opacity 0.98 --rounding 10 --hidden"
+}
+
+test_osk_toggle_stops_when_present() {
+  export FAKE_PGREP_MATCH=wvkbd-mobintl
+  run_script dot_local/bin/executable_osk-toggle &&
+    assert_log_contains "pkill -x wvkbd-mobintl"
+}
+
+test_wallpaper_random_applies_image() {
+  run_script dot_local/bin/executable_wallpaper-random &&
+    assert_log_contains "hyprctl cursorpos" &&
+    assert_log_contains "swww img $HOME/Pictures/Wallpapers/test.png" &&
+    assert_log_contains "--transition-type grow"
+}
+
+test_rofi_clipboard_decodes_to_wl_copy() {
+  printf 'clip-entry\n' > "$ROFI_QUEUE"
+  run_script dot_local/bin/executable_rofi-clipboard &&
+    assert_log_contains "cliphist list" &&
+    assert_log_contains "cliphist decode" &&
+    assert_log_contains "wl-copy" &&
+    assert_log_contains "clip-entry"
+}
+
+test_keybind_help_uses_hyprctl_and_rofi() {
+  printf '__ESC__\n' > "$ROFI_QUEUE"
+  run_script_capture dot_local/bin/executable_keybind-help
+  assert_log_contains "hyprctl -j binds" &&
+    assert_log_contains "rofi -dmenu -p Keybindings" &&
+    assert_log_contains "ghostty"
+}
+
+test_power_menu_lock_runs_hyprlock() {
+  printf 'Lock\n' > "$ROFI_QUEUE"
+  run_script dot_local/bin/executable_hypr-power-menu &&
+    assert_log_contains "rofi -dmenu -p Power menu" &&
+    assert_log_contains "pidof hyprlock" &&
+    assert_log_contains "hyprlock"
+}
+
+test_power_menu_lock_is_noop_when_already_locked() {
+  export FAKE_PIDOF_MATCH=hyprlock
+  printf 'Lock\n' > "$ROFI_QUEUE"
+  run_script dot_local/bin/executable_hypr-power-menu &&
+    assert_log_contains "pidof hyprlock" &&
+    assert_log_not_contains "hyprlock "
+}
+
+test_power_menu_suspend_runs_system_suspend() {
+  printf 'Suspend\n' > "$ROFI_QUEUE"
+  run_script dot_local/bin/executable_hypr-power-menu &&
+    assert_log_contains "systemctl suspend"
+}
+
+test_power_menu_logout_requires_confirmation() {
+  export XDG_SESSION_ID=7
+  printf 'Log out\nYes, log out\n' > "$ROFI_QUEUE"
+  run_script dot_local/bin/executable_hypr-power-menu &&
+    assert_log_contains "rofi -dmenu -p Confirm" &&
+    assert_log_contains "loginctl terminate-session 7"
+}
+
+test_power_menu_logout_cancel_does_nothing() {
+  export XDG_SESSION_ID=7
+  printf 'Log out\nNo, cancel\n' > "$ROFI_QUEUE"
+  run_script dot_local/bin/executable_hypr-power-menu &&
+    assert_log_contains "rofi -dmenu -p Confirm" &&
+    assert_log_not_contains "loginctl terminate-session"
+}
+
+test_power_menu_reboot_requires_confirmation() {
+  printf 'Reboot\nYes, reboot\n' > "$ROFI_QUEUE"
+  run_script dot_local/bin/executable_hypr-power-menu &&
+    assert_log_contains "systemctl reboot"
+}
+
+test_power_menu_shutdown_requires_confirmation() {
+  printf 'Shut down\nYes, shut down\n' > "$ROFI_QUEUE"
+  run_script dot_local/bin/executable_hypr-power-menu &&
+    assert_log_contains "systemctl poweroff"
+}
+
+test_power_menu_escape_does_nothing() {
+  printf '__ESC__\n' > "$ROFI_QUEUE"
+  run_script dot_local/bin/executable_hypr-power-menu &&
+    assert_log_not_contains "hyprlock" &&
+    assert_log_not_contains "systemctl" &&
+    assert_log_not_contains "loginctl"
+}
+
+test_hyprland_autostart_contract() {
+  assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "exec-once = uwsm app -- waybar" &&
+    assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "exec-once = uwsm app -- mako" &&
+    assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "exec-once = uwsm app -- swayosd-server" &&
+    assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "exec-once = wl-paste --watch cliphist store" &&
+    assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "exec-once = hypridle" &&
+    assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "exec-once = swww-daemon && ~/.local/bin/wallpaper-random"
+}
+
+test_hyprland_keybind_contract() {
+  assert_repo_contains dot_config/hypr/hyprland.conf.tmpl 'bind = $mod, SPACE, exec, uwsm app -- rofi -show drun' &&
+    assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "bind = , Print, exec, grimblast edit area" &&
+    assert_repo_contains dot_config/hypr/hyprland.conf.tmpl 'bind = $mod_ctrl, V, exec, ~/.local/bin/rofi-clipboard' &&
+    assert_repo_contains dot_config/hypr/hyprland.conf.tmpl 'bind = $mod_ctrl, I, exec, hyprlock' &&
+    assert_repo_contains dot_config/hypr/hyprland.conf.tmpl 'bind = $mod, ESCAPE, exec, uwsm app -- ~/.local/bin/hypr-power-menu' &&
+    assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "bindel = , XF86MonBrightnessUp, exec, swayosd-client --brightness raise" &&
+    assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "bindl = , switch:on:Lid Switch, exec, loginctl lock-session"
+}
+
+test_hypridle_lock_sleep_contract() {
+  assert_repo_contains dot_config/hypr/hypridle.conf "lock_cmd = pidof hyprlock || hyprlock" &&
+    assert_repo_contains dot_config/hypr/hypridle.conf "before_sleep_cmd = loginctl lock-session" &&
+    assert_repo_contains dot_config/hypr/hypridle.conf "after_sleep_cmd = hyprctl dispatch dpms on && systemctl --user restart waybar && ~/.local/bin/hyprsunset-apply" &&
+    assert_repo_contains dot_config/hypr/hypridle.conf "timeout = 300" &&
+    assert_repo_contains dot_config/hypr/hypridle.conf "timeout = 330" &&
+    assert_repo_contains dot_config/hypr/hypridle.conf "timeout = 600" &&
+    assert_repo_contains dot_config/hypr/hypridle.conf "on-timeout = systemctl suspend"
+}
+
+test_hyprlock_contract() {
+  assert_repo_contains dot_config/hypr/hyprlock.conf "disable_loading_bar = true" &&
+    assert_repo_contains dot_config/hypr/hyprlock.conf "path = screenshot" &&
+    assert_repo_contains dot_config/hypr/hyprlock.conf "blur_passes = 3" &&
+    assert_repo_contains dot_config/hypr/hyprlock.conf "hide_cursor = true" &&
+    assert_repo_contains dot_config/hypr/hyprlock.conf "placeholder_text = Enter Password"
+}
+
+test_waybar_environment_modules_contract() {
+  assert_repo_contains dot_config/waybar/config.tmpl "\"custom/launcher\"" &&
+    assert_repo_contains dot_config/waybar/config.tmpl "\"custom/updates\"" &&
+    assert_repo_contains dot_config/waybar/config.tmpl "\"custom/sysmon\"" &&
+    assert_repo_contains dot_config/waybar/config.tmpl "\"idle_inhibitor\"" &&
+    assert_repo_contains dot_config/waybar/config.tmpl "\"backlight\"" &&
+    assert_repo_contains dot_config/waybar/config.tmpl "\"battery\"" &&
+    assert_repo_contains dot_config/waybar/config.tmpl "\"on-click\": \"ghostty --class=com.floating.tui -e pulsemixer\"" &&
+    assert_repo_contains dot_config/waybar/config.tmpl "\"on-click-right\": \"wpctl set-mute @DEFAULT_SINK@ toggle\"" &&
+    assert_repo_contains dot_config/waybar/config.tmpl "\"on-click\": \"~/.local/bin/hypr-power-menu\"" &&
+    assert_repo_contains dot_config/waybar/config.tmpl "\"on-scroll-up\": \"swayosd-client --brightness raise\""
+}
+
+test_rofi_mako_style_contract() {
+  assert_repo_contains dot_config/rofi/config.rasi "modi: \"drun,run,calc\"" &&
+    assert_repo_contains dot_config/rofi/config.rasi "terminal: \"ghostty\"" &&
+    assert_repo_contains dot_config/rofi/config.rasi "border-radius: 0px" &&
+    assert_repo_contains dot_config/mako/config "anchor=top-right" &&
+    assert_repo_contains dot_config/mako/config "layer=overlay" &&
+    assert_repo_contains dot_config/mako/config "font=JetBrainsMono Nerd Font 10"
+}
+
+run_unit_tests() {
+  group "Unit/script tests"
+  run_case "toggle: auto -> on" test_toggle_auto_to_on
+  run_case "toggle: on -> off" test_toggle_on_to_off
+  run_case "toggle: off -> auto during day" test_toggle_off_to_auto_day
+  run_case "toggle: off -> auto during night" test_toggle_off_to_auto_night
+  run_case "toggle: uses configured temperature" test_toggle_uses_configured_temp
+  run_case "toggle: missing temperature falls back to 3500K" test_toggle_falls_back_to_default_temp
+  run_case "toggle: absent waybar does not fail" test_toggle_waybar_absent_does_not_fail
+
+  run_case "apply: manual override is a no-op" test_apply_manual_override_noop
+  run_case "apply: day clears active nightlight" test_apply_day_clears_night
+  run_case "apply: day already off is a no-op" test_apply_day_already_off_noop
+  run_case "apply: night enables nightlight" test_apply_night_enables
+  run_case "apply: night already on is a no-op" test_apply_night_already_on_noop
+
+  run_case "status: auto off emits valid JSON" test_status_auto_off_json
+  run_case "status: auto on emits valid JSON" test_status_auto_on_json
+  run_case "status: forced on mode" test_status_forced_on_json
+  run_case "status: forced off mode" test_status_forced_off_json
+  run_case "status: malformed sunwait report still emits JSON" test_status_malformed_sunwait_still_json
+  run_case "status: timedatectl fallback timezone" test_status_timedatectl_fallback
+}
+
+run_gui_tests() {
+  group "GUI/preview diagnostic tests"
+  run_case "picker: accepted value previews without saving" test_picker_first_selection_previews_without_save
+  run_case "picker: same value twice confirms and saves" test_picker_same_selection_confirms
+  run_case "picker: different accepted values preview each" test_picker_different_selections_preview_each
+  run_case "picker: cancel restores previous temp when active" test_picker_cancel_restores_previous_when_on
+  run_case "picker: cancel while inactive does not restore" test_picker_cancel_inactive_does_not_restore
+  run_case "picker: missing config dir can save" test_picker_missing_config_dir_saves
+  run_case "settings: launches picker and signals waybar" test_settings_launches_picker_and_signals_waybar
+  run_case "picker: highlight navigation previews before confirmation" test_true_highlight_preview_before_confirm
+}
+
+run_hyprland_environment_tests() {
+  group "Hyprland environment tests"
+  run_case "updates: disabled emits JSON" test_updates_check_disabled_json
+  run_case "updates: counts official and AUR updates" test_updates_check_counts_official_and_aur
+  run_case "updates: fresh cache avoids package checks" test_updates_check_uses_fresh_cache
+  run_case "updates menu: check now invalidates cache and signals waybar" test_update_menu_check_now
+  run_case "updates menu: toggle disables auto-check" test_update_menu_toggle_disables_and_signals
+  run_case "updates menu: toggle enables auto-check" test_update_menu_toggle_enables_and_signals
+  run_case "sysmon: emits Waybar JSON" test_sysmon_emits_waybar_json
+  run_case "osk: starts when absent" test_osk_toggle_starts_when_absent
+  run_case "osk: stops when present" test_osk_toggle_stops_when_present
+  run_case "wallpaper: random image applies via swww" test_wallpaper_random_applies_image
+  run_case "clipboard: rofi selection is decoded to wl-copy" test_rofi_clipboard_decodes_to_wl_copy
+  run_case "keybind help: reads Hyprland binds and opens rofi" test_keybind_help_uses_hyprctl_and_rofi
+  run_case "power menu: lock runs hyprlock" test_power_menu_lock_runs_hyprlock
+  run_case "power menu: lock is no-op when already locked" test_power_menu_lock_is_noop_when_already_locked
+  run_case "power menu: suspend runs system suspend" test_power_menu_suspend_runs_system_suspend
+  run_case "power menu: log out requires confirmation" test_power_menu_logout_requires_confirmation
+  run_case "power menu: log out cancel does nothing" test_power_menu_logout_cancel_does_nothing
+  run_case "power menu: reboot requires confirmation" test_power_menu_reboot_requires_confirmation
+  run_case "power menu: shut down requires confirmation" test_power_menu_shutdown_requires_confirmation
+  run_case "power menu: escape does nothing" test_power_menu_escape_does_nothing
+  run_case "hyprland: autostart contract" test_hyprland_autostart_contract
+  run_case "hyprland: keybind contract" test_hyprland_keybind_contract
+  run_case "hypridle: lock/sleep contract" test_hypridle_lock_sleep_contract
+  run_case "hyprlock: lock screen contract" test_hyprlock_contract
+  run_case "waybar: environment modules contract" test_waybar_environment_modules_contract
+  run_case "rofi/mako: style contract" test_rofi_mako_style_contract
+}
+
+case "$MODE" in
+  --unit)
+    run_unit_tests
+    ;;
+  --gui)
+    run_gui_tests
+    ;;
+  --all)
+    run_unit_tests
+    run_gui_tests
+    run_hyprland_environment_tests
+    ;;
+  *)
+    echo "Usage: $0 [--all|--unit|--gui]" >&2
+    exit 2
+    ;;
+esac
+
+printf '\n%d tests, %d failed\n' "$TOTAL" "$FAILED"
+[ "$FAILED" -eq 0 ]

@@ -42,4 +42,4 @@ else
   notify-send -t 1500 "Night Light: Auto"
 fi
 
-pkill -SIGRTMIN+10 waybar
+pkill -SIGRTMIN+10 waybar 2>/dev/null || true
