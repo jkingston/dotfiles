@@ -209,6 +209,9 @@ fi
   make_fake_bin swww '#!/usr/bin/env bash
 printf "swww %s\n" "$*" >> "$FAKE_LOG"
 '
+  make_fake_bin git '#!/usr/bin/env bash
+printf "git %s\n" "$*" >> "$FAKE_LOG"
+'
   make_fake_bin hyprctl '#!/usr/bin/env bash
 printf "hyprctl %s\n" "$*" >> "$FAKE_LOG"
 if [ "${1:-}" = "cursorpos" ]; then
@@ -274,7 +277,7 @@ test_toggle_auto_to_on() {
   run_script dot_local/bin/executable_hyprsunset-toggle &&
     [ "$(cat "$HOME/.config/hyprsunset/mode")" = "on" ] &&
     assert_log_contains "hyprsunset -t 3500" &&
-    assert_log_contains "notify-send -t 1500 Night Light: On" &&
+    assert_log_contains "notify-send -t 1500 Night Light: On (3500K)" &&
     assert_log_contains "pkill -SIGRTMIN+10 waybar"
 }
 
@@ -293,7 +296,7 @@ test_toggle_off_to_auto_day() {
     [ "$(cat "$HOME/.config/hyprsunset/mode")" = "auto" ] &&
     assert_log_contains "sunwait poll 51.5N 0.1W" &&
     assert_log_contains "hyprsunset -i" &&
-    assert_log_contains "notify-send -t 1500 Night Light: Auto"
+    assert_log_contains "notify-send -t 1500 Night Light: Auto (Off)"
 }
 
 test_toggle_off_to_auto_night() {
@@ -301,13 +304,15 @@ test_toggle_off_to_auto_night() {
   echo off > "$HOME/.config/hyprsunset/mode"
   run_script dot_local/bin/executable_hyprsunset-toggle &&
     [ "$(cat "$HOME/.config/hyprsunset/mode")" = "auto" ] &&
-    assert_log_contains "hyprsunset -t 3500"
+    assert_log_contains "hyprsunset -t 3500" &&
+    assert_log_contains "notify-send -t 1500 Night Light: Auto (On, 3500K)"
 }
 
 test_toggle_uses_configured_temp() {
   echo 2800 > "$HOME/.config/hyprsunset/temperature"
   run_script dot_local/bin/executable_hyprsunset-toggle &&
-    assert_log_contains "hyprsunset -t 2800"
+    assert_log_contains "hyprsunset -t 2800" &&
+    assert_log_contains "notify-send -t 1500 Night Light: On (2800K)"
 }
 
 test_toggle_falls_back_to_default_temp() {
@@ -324,12 +329,14 @@ test_toggle_waybar_absent_does_not_fail() {
 test_toggle_invalid_mode_defaults_to_auto() {
   echo broken > "$HOME/.config/hyprsunset/mode"
   run_script dot_local/bin/executable_hyprsunset-toggle &&
-    [ "$(cat "$HOME/.config/hyprsunset/mode")" = "on" ]
+    [ "$(cat "$HOME/.config/hyprsunset/mode")" = "on" ] &&
+    assert_log_contains "notify-send -t 1500 Night Light: On (3500K)"
 }
 
 test_apply_on_forces_nightlight() {
   echo on > "$HOME/.config/hyprsunset/mode"
   run_script dot_local/bin/executable_hyprsunset-apply &&
+    [ "$(cat "$HOME/.config/hyprsunset/applied-state")" = "on" ] &&
     assert_log_not_contains "sunwait" &&
     assert_log_contains "hyprsunset -t 3500"
 }
@@ -337,6 +344,7 @@ test_apply_on_forces_nightlight() {
 test_apply_off_forces_daylight() {
   echo off > "$HOME/.config/hyprsunset/mode"
   run_script dot_local/bin/executable_hyprsunset-apply &&
+    [ "$(cat "$HOME/.config/hyprsunset/applied-state")" = "off" ] &&
     assert_log_not_contains "sunwait" &&
     assert_log_contains "hyprsunset -i"
 }
@@ -344,6 +352,7 @@ test_apply_off_forces_daylight() {
 test_apply_day_clears_night() {
   export FAKE_SUNWAIT_POLL=DAY
   run_script dot_local/bin/executable_hyprsunset-apply &&
+    [ "$(cat "$HOME/.config/hyprsunset/applied-state")" = "off" ] &&
     assert_log_contains "sunwait poll 51.5N 0.1W" &&
     assert_log_contains "hyprsunset -i" &&
     assert_log_contains "pkill -SIGRTMIN+10 waybar"
@@ -358,6 +367,7 @@ test_apply_day_already_off_noop() {
 test_apply_night_enables() {
   export FAKE_SUNWAIT_POLL=NIGHT
   run_script dot_local/bin/executable_hyprsunset-apply &&
+    [ "$(cat "$HOME/.config/hyprsunset/applied-state")" = "on" ] &&
     assert_log_contains "hyprsunset -t 3500"
 }
 
@@ -410,19 +420,34 @@ test_status_forced_off_json() {
 test_status_expected_on_when_process_absent() {
   export FAKE_SUNWAIT_POLL=NIGHT
   status_json &&
-    jq -e '.tooltip | contains("Mode: auto") and contains("Night light: OFF") and contains("Expected: on")' "$TEST_TMP/status.json" >/dev/null
+    jq -e '.tooltip | contains("Mode: auto") and contains("Night light: ON") and (contains("Expected:") | not)' "$TEST_TMP/status.json" >/dev/null
 }
 
 test_status_expected_off_when_process_present() {
   export FAKE_SUNWAIT_POLL=DAY
   export FAKE_PIDOF_MATCH=hyprsunset
   status_json &&
-    jq -e '.tooltip | contains("Mode: auto") and contains("Night light: ON") and contains("Expected: off")' "$TEST_TMP/status.json" >/dev/null
+    jq -e '.tooltip | contains("Mode: auto") and contains("Night light: OFF") and (contains("Expected:") | not)' "$TEST_TMP/status.json" >/dev/null
 }
 
 test_status_malformed_sunwait_still_json() {
   export FAKE_SUNWAIT_REPORT="not daylight data"
   status_json
+}
+
+test_status_uses_daylight_not_astronomical_twilight() {
+  FAKE_SUNWAIT_REPORT='Target Information ...
+             Day with twilight: 04:59 to 21:00
+
+General Information (no offset) ...
+
+ Times ...         Daylight: 04:59 to 21:00
+        with Civil twilight: 04:20 to 21:39
+     with Nautical twilight: 03:21 to 22:39
+ with Astronomical twilight: 02:16 to 23:43'
+  export FAKE_SUNWAIT_REPORT
+  status_json &&
+    jq -e '.tooltip | contains("☀️ 04:59  🌙 21:00") and (contains("02:16") | not)' "$TEST_TMP/status.json" >/dev/null
 }
 
 test_status_timedatectl_fallback() {
@@ -580,6 +605,17 @@ test_wallpaper_random_applies_image() {
     assert_log_contains "--transition-type grow"
 }
 
+test_wallpaper_sync_skips_when_image_exists() {
+  run_script dot_local/bin/executable_wallpaper-sync &&
+    assert_log_not_contains "git clone"
+}
+
+test_wallpaper_sync_clones_when_empty() {
+  rm -f "$HOME/Pictures/Wallpapers/test.png"
+  run_script dot_local/bin/executable_wallpaper-sync &&
+    assert_log_contains "git clone --depth 1 https://github.com/Gingeh/wallpapers.git $HOME/Pictures/Wallpapers/catppuccin"
+}
+
 test_rofi_clipboard_decodes_to_wl_copy() {
   printf 'clip-entry\n' > "$ROFI_QUEUE"
   run_script dot_local/bin/executable_rofi-clipboard &&
@@ -661,6 +697,7 @@ test_hyprland_autostart_contract() {
     assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "exec-once = uwsm app -- swayosd-server" &&
     assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "exec-once = wl-paste --watch cliphist store" &&
     assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "exec-once = hypridle" &&
+    assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "wallpaper-sync.timer" &&
     assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "exec-once = swww-daemon && ~/.local/bin/wallpaper-random"
 }
 
@@ -737,9 +774,10 @@ run_unit_tests() {
   run_case "status: auto on emits valid JSON" test_status_auto_on_json
   run_case "status: forced on mode" test_status_forced_on_json
   run_case "status: forced off mode" test_status_forced_off_json
-  run_case "status: desired on reports process mismatch" test_status_expected_on_when_process_absent
-  run_case "status: desired off reports process mismatch" test_status_expected_off_when_process_present
+  run_case "status: desired on ignores absent process" test_status_expected_on_when_process_absent
+  run_case "status: desired off ignores identity process" test_status_expected_off_when_process_present
   run_case "status: malformed sunwait report still emits JSON" test_status_malformed_sunwait_still_json
+  run_case "status: daylight line wins over astronomical twilight" test_status_uses_daylight_not_astronomical_twilight
   run_case "status: timedatectl fallback timezone" test_status_timedatectl_fallback
 }
 
@@ -767,6 +805,8 @@ run_hyprland_environment_tests() {
   run_case "osk: starts when absent" test_osk_toggle_starts_when_absent
   run_case "osk: stops when present" test_osk_toggle_stops_when_present
   run_case "wallpaper: random image applies via swww" test_wallpaper_random_applies_image
+  run_case "wallpaper: sync skips when image exists" test_wallpaper_sync_skips_when_image_exists
+  run_case "wallpaper: sync clones when empty" test_wallpaper_sync_clones_when_empty
   run_case "clipboard: rofi selection is decoded to wl-copy" test_rofi_clipboard_decodes_to_wl_copy
   run_case "keybind help: reads Hyprland binds and opens rofi" test_keybind_help_uses_hyprctl_and_rofi
   run_case "power menu: lock runs hyprlock" test_power_menu_lock_runs_hyprlock

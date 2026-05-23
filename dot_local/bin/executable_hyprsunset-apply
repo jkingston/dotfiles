@@ -5,7 +5,9 @@
 CONFIG_DIR="$HOME/.config/hyprsunset"
 TEMP=$(cat "$CONFIG_DIR/temperature" 2>/dev/null || echo "3500")
 COORDS=$(~/.local/bin/hyprsunset-coords)
+read -r LAT LON _ <<< "$COORDS"
 MODE=$(cat "$CONFIG_DIR/mode" 2>/dev/null || echo auto)
+STATE_FILE="$CONFIG_DIR/applied-state"
 
 stop_hyprsunset() {
   pkill -x hyprsunset 2>/dev/null
@@ -21,14 +23,14 @@ desired_state() {
       echo off
       ;;
     auto)
-      if [ "$(sunwait poll "$COORDS")" = "DAY" ]; then
+      if [ "$(sunwait poll "$LAT" "$LON")" = "DAY" ]; then
         echo off
       else
         echo on
       fi
       ;;
     *)
-      if [ "$(sunwait poll "$COORDS")" = "DAY" ]; then
+      if [ "$(sunwait poll "$LAT" "$LON")" = "DAY" ]; then
         echo off
       else
         echo on
@@ -37,7 +39,12 @@ desired_state() {
   esac
 }
 
-if [ "$(desired_state)" = "on" ]; then
+mkdir -p "$CONFIG_DIR"
+
+STATE=$(desired_state)
+printf '%s\n' "$STATE" > "$STATE_FILE"
+
+if [ "$STATE" = "on" ]; then
   stop_hyprsunset
   hyprsunset -t "$TEMP"
 else

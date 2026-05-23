@@ -16,18 +16,37 @@ mkdir -p "$CONFIG_DIR"
 case "$(read_mode)" in
   auto)
     NEXT_MODE="on"
-    MESSAGE="Night Light: On"
     ;;
   on)
     NEXT_MODE="off"
-    MESSAGE="Night Light: Off"
     ;;
   off)
     NEXT_MODE="auto"
-    MESSAGE="Night Light: Auto"
     ;;
 esac
 
 printf '%s\n' "$NEXT_MODE" > "$MODE_FILE"
 ~/.local/bin/hyprsunset-apply
+
+TEMP=$(cat "$CONFIG_DIR/temperature" 2>/dev/null || echo "3500")
+STATE=$(cat "$CONFIG_DIR/applied-state" 2>/dev/null || echo off)
+
+case "$NEXT_MODE:$STATE" in
+  on:on)
+    MESSAGE="Night Light: On (${TEMP}K)"
+    ;;
+  off:off)
+    MESSAGE="Night Light: Off"
+    ;;
+  auto:on)
+    MESSAGE="Night Light: Auto (On, ${TEMP}K)"
+    ;;
+  auto:off)
+    MESSAGE="Night Light: Auto (Off)"
+    ;;
+  *)
+    MESSAGE="Night Light: ${NEXT_MODE}"
+    ;;
+esac
+
 notify-send -t 1500 "$MESSAGE"

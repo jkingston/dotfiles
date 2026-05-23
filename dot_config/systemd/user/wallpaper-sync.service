@@ -1,0 +1,6 @@
+[Unit]
+Description=Ensure wallpapers are available
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/wallpaper-sync

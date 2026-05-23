@@ -44,7 +44,7 @@ $mod_alt = SUPER_ALT
 
 # Autostart
 exec-once = xrdb -merge ~/.Xresources
-exec-once = systemctl --user daemon-reload && systemctl --user enable --now hyprsunset-check.timer wallpaper-rotate.timer
+exec-once = systemctl --user daemon-reload && systemctl --user enable --now hyprsunset-check.timer wallpaper-sync.timer wallpaper-rotate.timer
 exec-once = uwsm app -- waybar
 exec-once = uwsm app -- mako
 exec-once = uwsm app -- swayosd-server

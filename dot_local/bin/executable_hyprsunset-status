@@ -5,6 +5,7 @@ CONFIG_DIR="$HOME/.config/hyprsunset"
 TEMP=$(cat "$CONFIG_DIR/temperature" 2>/dev/null || echo "3500")
 TZ=$(timedatectl show --property=Timezone --value 2>/dev/null || echo "Europe/London")
 COORDS=$(~/.local/bin/hyprsunset-coords)
+read -r LAT LON _ <<< "$COORDS"
 MODE=$(cat "$CONFIG_DIR/mode" 2>/dev/null || echo auto)
 
 case "$MODE" in
@@ -21,7 +22,7 @@ desired_state() {
       echo off
       ;;
     auto)
-      if [ "$(sunwait poll "$COORDS")" = "DAY" ]; then
+      if [ "$(sunwait poll "$LAT" "$LON")" = "DAY" ]; then
         echo off
       else
         echo on
@@ -30,27 +31,28 @@ desired_state() {
   esac
 }
 
-DESIRED=$(desired_state)
+STATE=$(desired_state)
 
-# Current state (on/off) and icon from the compositor process.
-if pidof hyprsunset >/dev/null 2>&1; then
+# The effective nightlight state is derived from mode + schedule. A running
+# hyprsunset process can also mean identity/no color change, so process
+# presence is not a reliable on/off signal.
+if [ "$STATE" = "on" ]; then
   ICON="󱩌"
-  STATE="ON (${TEMP}K)"
+  LABEL="ON (${TEMP}K)"
 else
   ICON="󰹏"
-  STATE="OFF"
+  LABEL="OFF"
 fi
 
-EXPECTED=""
-if { [ "$DESIRED" = "on" ] && [ "$STATE" = "OFF" ]; } || { [ "$DESIRED" = "off" ] && [ "$STATE" != "OFF" ]; }; then
-  EXPECTED="\\nExpected: ${DESIRED}"
+# Parse the actual sunrise/sunset row. Twilight rows can legitimately start
+# after 02:00 in summer, but they are not the sunset time we want to display.
+REPORT=$(sunwait report "$LAT" "$LON")
+DAYLIGHT_LINE=$(printf '%s\n' "$REPORT" | grep -E '(^|[[:space:]])Daylight:' | grep -v 'with ' | head -n 1)
+if [ -z "$DAYLIGHT_LINE" ]; then
+  DAYLIGHT_LINE=$(printf '%s\n' "$REPORT" | grep "Day with twilight" | head -n 1)
 fi
-
-# Parse daylight times correctly from sunwait report
-# Format: "Day with twilight: 08:03 to 16:03"
-DAYLIGHT=$(sunwait report "$COORDS" | grep "Day with twilight" | sed 's/.*: //')
-SUNRISE=$(echo "$DAYLIGHT" | awk '{print $1}')
-SUNSET=$(echo "$DAYLIGHT" | awk '{print $3}')
+SUNRISE=$(printf '%s\n' "$DAYLIGHT_LINE" | grep -oE '[0-9]{1,2}:[0-9]{2}' | sed -n '1p')
+SUNSET=$(printf '%s\n' "$DAYLIGHT_LINE" | grep -oE '[0-9]{1,2}:[0-9]{2}' | sed -n '2p')
 
 # Output JSON for waybar
-printf '{"text": "%s", "tooltip": "Night light: %s\\nMode: %s%s\\n%s\\n☀️ %s  🌙 %s"}' "$ICON" "$STATE" "$MODE" "$EXPECTED" "$TZ" "$SUNRISE" "$SUNSET"
+printf '{"text": "%s", "tooltip": "Night light: %s\\nMode: %s\\n%s\\n☀️ %s  🌙 %s"}' "$ICON" "$LABEL" "$MODE" "$TZ" "$SUNRISE" "$SUNSET"
