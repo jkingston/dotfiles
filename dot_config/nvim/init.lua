@@ -32,7 +32,7 @@ vim.pack.add({
 })
 
 -- Colorscheme
-vim.cmd.colorscheme("catppuccin")
+vim.cmd.colorscheme("catppuccin-nvim")
 
 -- Line number glow effect
 vim.opt.cursorline = true
@@ -157,7 +157,7 @@ require("gitsigns").setup()
 -- Lualine
 require("lualine").setup({
 	options = {
-		theme = "catppuccin",
+		theme = "catppuccin-nvim",
 		component_separators = "|",
 		section_separators = "",
 	},
