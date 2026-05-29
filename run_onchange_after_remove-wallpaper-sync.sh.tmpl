@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+{{ if eq .desktop "hyprland" -}}
+set -u
+
+systemctl --user disable --now wallpaper-sync.timer 2>/dev/null || true
+rm -f \
+  "$HOME/.config/systemd/user/wallpaper-sync.service" \
+  "$HOME/.config/systemd/user/wallpaper-sync.timer" \
+  "$HOME/.local/bin/wallpaper-sync"
+{{ end -}}

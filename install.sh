@@ -391,9 +391,6 @@ echo "3500" > "/mnt/home/$USERNAME/.config/hyprsunset/temperature"
 echo "auto" > "/mnt/home/$USERNAME/.config/hyprsunset/mode"
 chown -R 1000:1000 "/mnt/home/$USERNAME/Pictures"
 chown -R 1000:1000 "/mnt/home/$USERNAME/.config/hyprsunset"
-info "Syncing wallpapers..."
-arch-chroot /mnt su - "$USERNAME" -c "~/.local/bin/wallpaper-sync" || \
-    warn "Wallpaper sync failed; the user timer will retry after reboot"
 
 # --- Done ---
 info ""
@@ -403,7 +400,7 @@ info "============================================"
 info ""
 info "After reboot:"
 info "  1. Connect to wifi: nmtui"
-info "  2. Wallpapers sync automatically to ~/Pictures/Wallpapers/catppuccin"
+info "  2. Wallpapers are checked out by chezmoi to ~/Pictures/Wallpapers/catppuccin"
 info "  3. Authenticate GitHub CLI: gh auth login"
 info ""
 info "Unmounting and ready to reboot."

@@ -1,18 +1,17 @@
 #!/usr/bin/env bash
+{{ if eq .desktop "hyprland" -}}
 set -euo pipefail
 
 WALLPAPER_DIR="${WALLPAPER_DIR:-$HOME/Pictures/Wallpapers}"
-WALLPAPER_REPO="${WALLPAPER_REPO:-https://github.com/Gingeh/wallpapers.git}"
+WALLPAPER_REPO="${WALLPAPER_REPO:-https://github.com/zhichaoh/catppuccin-wallpapers.git}"
 TARGET_DIR="$WALLPAPER_DIR/catppuccin"
 
 mkdir -p "$WALLPAPER_DIR"
 
-if find -L "$WALLPAPER_DIR" -type f \( -name "*.jpg" -o -name "*.jpeg" -o -name "*.png" -o -name "*.webp" \) -print -quit 2>/dev/null | grep -q .; then
-  exit 0
-fi
-
 if [ -d "$TARGET_DIR/.git" ]; then
   git -C "$TARGET_DIR" pull --ff-only
+elif find -L "$WALLPAPER_DIR" -type f \( -name "*.jpg" -o -name "*.jpeg" -o -name "*.png" -o -name "*.webp" \) -print -quit 2>/dev/null | grep -q .; then
+  exit 0
 else
   git clone --depth 1 "$WALLPAPER_REPO" "$TARGET_DIR"
 fi
@@ -20,3 +19,4 @@ fi
 if [ -x "$HOME/.local/bin/wallpaper-random" ] && command -v swww >/dev/null 2>&1 && swww query >/dev/null 2>&1; then
   "$HOME/.local/bin/wallpaper-random" || true
 fi
+{{ end -}}

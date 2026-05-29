@@ -699,15 +699,17 @@ test_wallpaper_random_applies_image() {
     assert_log_contains "--transition-type grow"
 }
 
-test_wallpaper_sync_skips_when_image_exists() {
-  run_script dot_local/bin/executable_wallpaper-sync &&
-    assert_log_not_contains "git clone"
-}
-
-test_wallpaper_sync_clones_when_empty() {
-  rm -f "$HOME/Pictures/Wallpapers/test.png"
-  run_script dot_local/bin/executable_wallpaper-sync &&
-    assert_log_contains "git clone --depth 1 https://github.com/Gingeh/wallpapers.git $HOME/Pictures/Wallpapers/catppuccin"
+test_wallpaper_checkout_runs_after_chezmoi_apply() {
+  assert_repo_contains run_onchange_after_checkout-wallpapers.sh.tmpl 'git clone --depth 1 "$WALLPAPER_REPO" "$TARGET_DIR"' &&
+    assert_repo_contains run_onchange_after_checkout-wallpapers.sh.tmpl 'git -C "$TARGET_DIR" pull --ff-only' &&
+    assert_repo_contains run_onchange_after_checkout-wallpapers.sh.tmpl 'https://github.com/zhichaoh/catppuccin-wallpapers.git' &&
+    assert_file_absent "$ROOT_DIR/dot_config/systemd/user/wallpaper-sync.service" &&
+    assert_file_absent "$ROOT_DIR/dot_config/systemd/user/wallpaper-sync.timer" &&
+    assert_file_absent "$ROOT_DIR/dot_local/bin/executable_wallpaper-sync" &&
+    assert_repo_contains run_onchange_after_remove-wallpaper-sync.sh.tmpl 'systemctl --user disable --now wallpaper-sync.timer' &&
+    assert_repo_contains run_onchange_after_remove-wallpaper-sync.sh.tmpl '$HOME/.config/systemd/user/wallpaper-sync.service' &&
+    assert_repo_contains run_onchange_after_remove-wallpaper-sync.sh.tmpl '$HOME/.config/systemd/user/wallpaper-sync.timer' &&
+    assert_repo_contains run_onchange_after_remove-wallpaper-sync.sh.tmpl '$HOME/.local/bin/wallpaper-sync'
 }
 
 test_rofi_clipboard_decodes_to_wl_copy() {
@@ -791,7 +793,8 @@ test_hyprland_autostart_contract() {
     assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "exec-once = uwsm app -- swayosd-server" &&
     assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "exec-once = wl-paste --watch cliphist store" &&
     assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "exec-once = hypridle" &&
-    assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "wallpaper-sync.timer" &&
+    assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "wallpaper-rotate.timer" &&
+    ! grep -F "wallpaper-sync.timer" "$ROOT_DIR/dot_config/hypr/hyprland.conf.tmpl" >/dev/null 2>&1 &&
     assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "exec-once = swww-daemon && ~/.local/bin/wallpaper-random"
 }
 
@@ -944,8 +947,7 @@ run_hyprland_environment_tests() {
   run_case "osk: starts when absent" test_osk_toggle_starts_when_absent
   run_case "osk: stops when present" test_osk_toggle_stops_when_present
   run_case "wallpaper: random image applies via swww" test_wallpaper_random_applies_image
-  run_case "wallpaper: sync skips when image exists" test_wallpaper_sync_skips_when_image_exists
-  run_case "wallpaper: sync clones when empty" test_wallpaper_sync_clones_when_empty
+  run_case "wallpaper: checkout runs after chezmoi apply" test_wallpaper_checkout_runs_after_chezmoi_apply
   run_case "clipboard: rofi selection is decoded to wl-copy" test_rofi_clipboard_decodes_to_wl_copy
   run_case "keybind help: reads Hyprland binds and opens rofi" test_keybind_help_uses_hyprctl_and_rofi
   run_case "power menu: lock runs hyprlock" test_power_menu_lock_runs_hyprlock
