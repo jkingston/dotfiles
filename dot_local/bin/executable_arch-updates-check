@@ -4,6 +4,11 @@ CACHE_FILE="$CACHE_DIR/status.json"
 LAST_CHECK="$CACHE_DIR/last-check"
 LOCK_FILE="$CACHE_DIR/check.lock"
 CHECK_INTERVAL=14400
+FORCE=0
+
+if [ "${1:-}" = "--force" ]; then
+  FORCE=1
+fi
 
 mkdir -p "$CACHE_DIR"
 
@@ -17,7 +22,7 @@ if [ -f "$LOCK_FILE" ]; then
   exit 0
 fi
 
-if [ -f "$LAST_CHECK" ] && [ -f "$CACHE_FILE" ]; then
+if [ "$FORCE" -eq 0 ] && [ -f "$LAST_CHECK" ] && [ -f "$CACHE_FILE" ]; then
   AGE=$(($(date +%s) - $(cat "$LAST_CHECK")))
   [ $AGE -lt $CHECK_INTERVAL ] && cat "$CACHE_FILE" && exit 0
 fi

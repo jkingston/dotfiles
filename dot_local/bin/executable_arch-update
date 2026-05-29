@@ -2,6 +2,24 @@
 set -e
 echo "=== Arch Linux System Update ==="
 echo ""
+echo "Checking for updates..."
+"$HOME/.local/bin/arch-updates-check" --force >/dev/null
+
+OFFICIAL=$(wc -l < "$HOME/.cache/arch-updates/official.txt" | tr -d ' ')
+AUR=0
+if [ -f "$HOME/.cache/arch-updates/aur.txt" ]; then
+  AUR=$(wc -l < "$HOME/.cache/arch-updates/aur.txt" | tr -d ' ')
+fi
+TOTAL=$((OFFICIAL + AUR))
+
+if [ "$TOTAL" -eq 0 ]; then
+  pkill -RTMIN+12 waybar || true
+  echo "No updates available."
+  echo ""
+  read -r -p "Press Enter to close..."
+  exit 0
+fi
+
 echo "Updating official packages..."
 sudo pacman -Syu
 if command -v yay &>/dev/null; then

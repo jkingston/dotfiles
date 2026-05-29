@@ -636,6 +636,17 @@ test_updates_check_uses_fresh_cache() {
     assert_log_not_contains "checkupdates"
 }
 
+test_updates_check_force_ignores_fresh_cache() {
+  mkdir -p "$HOME/.cache/arch-updates"
+  printf '%s\n' '{"text":"cached","tooltip":"cached","class":"cached"}' > "$HOME/.cache/arch-updates/status.json"
+  date +%s > "$HOME/.cache/arch-updates/last-check"
+  export FAKE_CHECKUPDATES="linux 1 -> 2"
+  bash "$ROOT_DIR/dot_local/bin/executable_arch-updates-check" --force > "$TEST_TMP/output.json" &&
+    jq -e . "$TEST_TMP/output.json" >/dev/null &&
+    jq -e '.text | contains("1")' "$TEST_TMP/output.json" >/dev/null &&
+    assert_log_contains "checkupdates"
+}
+
 test_update_menu_check_now() {
   mkdir -p "$HOME/.cache/arch-updates"
   touch "$HOME/.cache/arch-updates/last-check"
@@ -908,6 +919,7 @@ run_hyprland_environment_tests() {
   run_case "updates: disabled emits JSON" test_updates_check_disabled_json
   run_case "updates: counts official and AUR updates" test_updates_check_counts_official_and_aur
   run_case "updates: fresh cache avoids package checks" test_updates_check_uses_fresh_cache
+  run_case "updates: force ignores fresh cache" test_updates_check_force_ignores_fresh_cache
   run_case "updates menu: check now invalidates cache and signals waybar" test_update_menu_check_now
   run_case "updates menu: toggle disables auto-check" test_update_menu_toggle_disables_and_signals
   run_case "updates menu: toggle enables auto-check" test_update_menu_toggle_enables_and_signals
