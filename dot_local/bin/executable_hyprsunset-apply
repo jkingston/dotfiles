@@ -8,10 +8,67 @@ COORDS=$(~/.local/bin/hyprsunset-coords)
 read -r LAT LON _ <<< "$COORDS"
 MODE=$(cat "$CONFIG_DIR/mode" 2>/dev/null || echo auto)
 STATE_FILE="$CONFIG_DIR/applied-state"
+CURRENT_TEMP_FILE="$CONFIG_DIR/current-temperature"
+RUN_UNIT="hyprsunset-current.service"
 
 stop_hyprsunset() {
+  systemctl --user stop hyprsunset.service >/dev/null 2>&1 || true
+  systemctl --user stop "$RUN_UNIT" >/dev/null 2>&1 || true
   pkill -x hyprsunset 2>/dev/null
   while pgrep -x hyprsunset >/dev/null; do sleep 0.1; done
+}
+
+start_hyprsunset_daemon() {
+  if pgrep -x hyprsunset >/dev/null && ! systemctl --user show "$RUN_UNIT" \
+      --property=ExecStart --value 2>/dev/null | grep -E -- 'hyprsunset (-t|-i)' >/dev/null; then
+    return 0
+  fi
+
+  systemctl --user stop "$RUN_UNIT" >/dev/null 2>&1 || true
+
+  if systemctl --user start hyprsunset.service >/dev/null 2>&1; then
+    return 0
+  fi
+
+  if command -v systemd-run >/dev/null 2>&1 &&
+      systemd-run --user --unit="${RUN_UNIT%.service}" --collect --quiet hyprsunset >/dev/null 2>&1; then
+    return 0
+  fi
+
+  hyprsunset >/dev/null 2>&1 &
+}
+
+set_hyprsunset() {
+  local command="$1"
+  local value="${2:-}"
+  local attempt
+
+  start_hyprsunset_daemon
+  if command -v hyprctl >/dev/null 2>&1; then
+    for attempt in $(seq 1 10); do
+      if [ -n "$value" ]; then
+        if hyprctl hyprsunset "$command" "$value" >/dev/null 2>&1; then
+          printf '%s\n' "$value" > "$CURRENT_TEMP_FILE"
+          return 0
+        fi
+      else
+        if hyprctl hyprsunset "$command" >/dev/null 2>&1; then
+          rm -f "$CURRENT_TEMP_FILE"
+          return 0
+        fi
+      fi
+      sleep 0.05
+    done
+  fi
+
+  stop_hyprsunset
+  if [ "$command" = "temperature" ]; then
+    hyprsunset -t "$value" >/dev/null 2>&1 &
+    printf '%s\n' "$value" > "$CURRENT_TEMP_FILE"
+  else
+    hyprsunset -i >/dev/null 2>&1 &
+    rm -f "$CURRENT_TEMP_FILE"
+  fi
 }
 
 desired_state() {
@@ -45,11 +102,9 @@ STATE=$(desired_state)
 printf '%s\n' "$STATE" > "$STATE_FILE"
 
 if [ "$STATE" = "on" ]; then
-  stop_hyprsunset
-  hyprsunset -t "$TEMP"
+  set_hyprsunset temperature "$TEMP"
 else
-  stop_hyprsunset
-  hyprsunset -i
+  set_hyprsunset identity
 fi
 
 pkill -SIGRTMIN+10 waybar 2>/dev/null || true

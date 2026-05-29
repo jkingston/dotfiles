@@ -134,40 +134,84 @@ if [ ! -s "$ROFI_QUEUE" ]; then
   exit 1
 fi
 args="$*"
-line="$(sed -n "1p" "$ROFI_QUEUE")"
-sed -n "2,\$p" "$ROFI_QUEUE" > "$ROFI_QUEUE.next"
-mv "$ROFI_QUEUE.next" "$ROFI_QUEUE"
 selected_row=0
+on_selection_changed=""
 while [ "$#" -gt 0 ]; do
-  if [ "${1:-}" = "-selected-row" ]; then
-    selected_row="${2:-0}"
-    shift 2
-  else
-    shift
-  fi
+  case "${1:-}" in
+    -selected-row)
+      selected_row="${2:-0}"
+      shift 2
+      ;;
+    -on-selection-changed)
+      on_selection_changed="${2:-}"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
 done
-case "$line" in
-  __ESC__)
-    exit 1
-    ;;
-  __DOWN__)
-    printf "%s\n" "$selected_row"
-    exit 10
-    ;;
-  __UP__)
-    printf "%s\n" "$selected_row"
-    exit 11
-    ;;
-  __ENTER__)
-    printf "%s\n" "$selected_row"
-    exit 0
-    ;;
-esac
-if printf "%s\n" "$args" | grep -F -- "-format i" >/dev/null 2>&1; then
-  index="$(printf "%s\n" "$stdin" | /usr/bin/awk -v target="$line" '\''$0 == target { print NR - 1; found=1; exit } END { if (!found) exit 1 }'\'')"
-  [ -n "$index" ] && printf "%s\n" "$index" && exit 0
+max_row="$(printf "%s\n" "$stdin" | /usr/bin/awk '\''END { if (NR > 0) print NR - 1; else print 0 }'\'')"
+
+run_selection_changed() {
+  [ -n "$on_selection_changed" ] || return 0
+  entry="$(printf "%s\n" "$stdin" | sed -n "$((selected_row + 1))p")"
+  [ -n "$entry" ] || return 0
+  printf "rofi-on-selection %s\n" "$entry" >> "$FAKE_LOG"
+  cmd="${on_selection_changed//\{entry\}/$entry}"
+  eval "$cmd"
+}
+
+if [ "${FAKE_ROFI_INITIAL_SELECTION_FIRST:-0}" = "1" ]; then
+  requested_selected_row="$selected_row"
+  selected_row=0
+  run_selection_changed
+  selected_row="$requested_selected_row"
+  run_selection_changed
 fi
-printf "%s\n" "$line"
+
+while [ -s "$ROFI_QUEUE" ]; do
+  line="$(sed -n "1p" "$ROFI_QUEUE")"
+  sed -n "2,\$p" "$ROFI_QUEUE" > "$ROFI_QUEUE.next"
+  mv "$ROFI_QUEUE.next" "$ROFI_QUEUE"
+
+  case "$line" in
+    __ESC__)
+      exit 1
+      ;;
+    __DOWN__)
+      if [ "$selected_row" -lt "$max_row" ]; then
+        selected_row="$((selected_row + 1))"
+      fi
+      run_selection_changed
+      ;;
+    __UP__)
+      if [ "$selected_row" -gt 0 ]; then
+        selected_row="$((selected_row - 1))"
+      fi
+      run_selection_changed
+      ;;
+    __ENTER__)
+      printf "%s\n" "$selected_row"
+      exit 0
+      ;;
+    *)
+      if printf "%s\n" "$args" | grep -F -- "-format i" >/dev/null 2>&1; then
+        index="$(printf "%s\n" "$stdin" | /usr/bin/awk -v target="$line" '\''$0 == target { print NR - 1; found=1; exit } END { if (!found) exit 1 }'\'')"
+        if [ -n "$index" ]; then
+          selected_row="$index"
+          run_selection_changed
+          printf "%s\n" "$index"
+          exit 0
+        fi
+      fi
+      printf "%s\n" "$line"
+      exit 0
+      ;;
+  esac
+done
+
+exit 1
 '
   make_fake_bin grep '#!/usr/bin/env bash
 if [ "${1:-}" = "-oP" ]; then
@@ -276,8 +320,8 @@ run_script_capture() {
 test_toggle_auto_to_on() {
   run_script dot_local/bin/executable_hyprsunset-toggle &&
     [ "$(cat "$HOME/.config/hyprsunset/mode")" = "on" ] &&
-    assert_log_contains "hyprsunset -t 3500" &&
-    assert_log_contains "notify-send -t 1500 Night Light: On (3500K)" &&
+    assert_log_contains "hyprctl hyprsunset temperature 3500" &&
+    assert_log_contains "notify-send -t 1500 Night Light: ON (3500K)" &&
     assert_log_contains "pkill -SIGRTMIN+10 waybar"
 }
 
@@ -285,8 +329,8 @@ test_toggle_on_to_off() {
   echo on > "$HOME/.config/hyprsunset/mode"
   run_script dot_local/bin/executable_hyprsunset-toggle &&
     [ "$(cat "$HOME/.config/hyprsunset/mode")" = "off" ] &&
-    assert_log_contains "hyprsunset -i" &&
-    assert_log_contains "notify-send -t 1500 Night Light: Off"
+    assert_log_contains "hyprctl hyprsunset identity" &&
+    assert_log_contains "notify-send -t 1500 Night Light: OFF"
 }
 
 test_toggle_off_to_auto_day() {
@@ -295,8 +339,8 @@ test_toggle_off_to_auto_day() {
   run_script dot_local/bin/executable_hyprsunset-toggle &&
     [ "$(cat "$HOME/.config/hyprsunset/mode")" = "auto" ] &&
     assert_log_contains "sunwait poll 51.5N 0.1W" &&
-    assert_log_contains "hyprsunset -i" &&
-    assert_log_contains "notify-send -t 1500 Night Light: Auto (Off)"
+    assert_log_contains "hyprctl hyprsunset identity" &&
+    assert_log_contains "notify-send -t 1500 Night Light: Auto (OFF)"
 }
 
 test_toggle_off_to_auto_night() {
@@ -304,21 +348,21 @@ test_toggle_off_to_auto_night() {
   echo off > "$HOME/.config/hyprsunset/mode"
   run_script dot_local/bin/executable_hyprsunset-toggle &&
     [ "$(cat "$HOME/.config/hyprsunset/mode")" = "auto" ] &&
-    assert_log_contains "hyprsunset -t 3500" &&
-    assert_log_contains "notify-send -t 1500 Night Light: Auto (On, 3500K)"
+    assert_log_contains "hyprctl hyprsunset temperature 3500" &&
+    assert_log_contains "notify-send -t 1500 Night Light: Auto (ON (3500K))"
 }
 
 test_toggle_uses_configured_temp() {
   echo 2800 > "$HOME/.config/hyprsunset/temperature"
   run_script dot_local/bin/executable_hyprsunset-toggle &&
-    assert_log_contains "hyprsunset -t 2800" &&
-    assert_log_contains "notify-send -t 1500 Night Light: On (2800K)"
+    assert_log_contains "hyprctl hyprsunset temperature 2800" &&
+    assert_log_contains "notify-send -t 1500 Night Light: ON (2800K)"
 }
 
 test_toggle_falls_back_to_default_temp() {
   rm -f "$HOME/.config/hyprsunset/temperature"
   run_script dot_local/bin/executable_hyprsunset-toggle &&
-    assert_log_contains "hyprsunset -t 3500"
+    assert_log_contains "hyprctl hyprsunset temperature 3500"
 }
 
 test_toggle_waybar_absent_does_not_fail() {
@@ -330,7 +374,7 @@ test_toggle_invalid_mode_defaults_to_auto() {
   echo broken > "$HOME/.config/hyprsunset/mode"
   run_script dot_local/bin/executable_hyprsunset-toggle &&
     [ "$(cat "$HOME/.config/hyprsunset/mode")" = "on" ] &&
-    assert_log_contains "notify-send -t 1500 Night Light: On (3500K)"
+    assert_log_contains "notify-send -t 1500 Night Light: ON (3500K)"
 }
 
 test_apply_on_forces_nightlight() {
@@ -338,7 +382,7 @@ test_apply_on_forces_nightlight() {
   run_script dot_local/bin/executable_hyprsunset-apply &&
     [ "$(cat "$HOME/.config/hyprsunset/applied-state")" = "on" ] &&
     assert_log_not_contains "sunwait" &&
-    assert_log_contains "hyprsunset -t 3500"
+    assert_log_contains "hyprctl hyprsunset temperature 3500"
 }
 
 test_apply_off_forces_daylight() {
@@ -346,7 +390,7 @@ test_apply_off_forces_daylight() {
   run_script dot_local/bin/executable_hyprsunset-apply &&
     [ "$(cat "$HOME/.config/hyprsunset/applied-state")" = "off" ] &&
     assert_log_not_contains "sunwait" &&
-    assert_log_contains "hyprsunset -i"
+    assert_log_contains "hyprctl hyprsunset identity"
 }
 
 test_apply_day_clears_night() {
@@ -354,28 +398,28 @@ test_apply_day_clears_night() {
   run_script dot_local/bin/executable_hyprsunset-apply &&
     [ "$(cat "$HOME/.config/hyprsunset/applied-state")" = "off" ] &&
     assert_log_contains "sunwait poll 51.5N 0.1W" &&
-    assert_log_contains "hyprsunset -i" &&
+    assert_log_contains "hyprctl hyprsunset identity" &&
     assert_log_contains "pkill -SIGRTMIN+10 waybar"
 }
 
 test_apply_day_already_off_noop() {
   export FAKE_SUNWAIT_POLL=DAY
   run_script dot_local/bin/executable_hyprsunset-apply &&
-    assert_log_contains "hyprsunset -i"
+    assert_log_contains "hyprctl hyprsunset identity"
 }
 
 test_apply_night_enables() {
   export FAKE_SUNWAIT_POLL=NIGHT
   run_script dot_local/bin/executable_hyprsunset-apply &&
     [ "$(cat "$HOME/.config/hyprsunset/applied-state")" = "on" ] &&
-    assert_log_contains "hyprsunset -t 3500"
+    assert_log_contains "hyprctl hyprsunset temperature 3500"
 }
 
 test_apply_night_already_on_noop() {
   export FAKE_SUNWAIT_POLL=NIGHT
   export FAKE_PIDOF_MATCH=hyprsunset
   run_script dot_local/bin/executable_hyprsunset-apply &&
-    assert_log_contains "hyprsunset -t 3500"
+    assert_log_contains "hyprctl hyprsunset temperature 3500"
 }
 
 test_apply_invalid_mode_defaults_to_auto() {
@@ -383,7 +427,7 @@ test_apply_invalid_mode_defaults_to_auto() {
   echo broken > "$HOME/.config/hyprsunset/mode"
   run_script dot_local/bin/executable_hyprsunset-apply &&
     assert_log_contains "sunwait poll 51.5N 0.1W" &&
-    assert_log_contains "hyprsunset -t 3500"
+    assert_log_contains "hyprctl hyprsunset temperature 3500"
 }
 
 status_json() {
@@ -394,40 +438,40 @@ status_json() {
 test_status_auto_off_json() {
   export FAKE_SUNWAIT_POLL=DAY
   status_json &&
-    jq -e '.tooltip | contains("Mode: auto") and contains("Night light: OFF")' "$TEST_TMP/status.json" >/dev/null
+    jq -e '.tooltip | contains("Night light: Auto (OFF)") and (contains("Mode:") | not)' "$TEST_TMP/status.json" >/dev/null
 }
 
 test_status_auto_on_json() {
   export FAKE_SUNWAIT_POLL=NIGHT
   export FAKE_PIDOF_MATCH=hyprsunset
   status_json &&
-    jq -e '.tooltip | contains("Mode: auto") and contains("ON (3500K)")' "$TEST_TMP/status.json" >/dev/null
+    jq -e '.tooltip | contains("Night light: Auto (ON (3500K))") and (contains("Mode:") | not)' "$TEST_TMP/status.json" >/dev/null
 }
 
 test_status_forced_on_json() {
   echo on > "$HOME/.config/hyprsunset/mode"
   export FAKE_PIDOF_MATCH=hyprsunset
   status_json &&
-    jq -e '.tooltip | contains("Mode: on") and contains("Night light: ON")' "$TEST_TMP/status.json" >/dev/null
+    jq -e '.tooltip | contains("Night light: ON") and (contains("Mode:") | not)' "$TEST_TMP/status.json" >/dev/null
 }
 
 test_status_forced_off_json() {
   echo off > "$HOME/.config/hyprsunset/mode"
   status_json &&
-    jq -e '.tooltip | contains("Mode: off") and contains("Night light: OFF")' "$TEST_TMP/status.json" >/dev/null
+    jq -e '.tooltip | contains("Night light: OFF") and (contains("Mode:") | not)' "$TEST_TMP/status.json" >/dev/null
 }
 
 test_status_expected_on_when_process_absent() {
   export FAKE_SUNWAIT_POLL=NIGHT
   status_json &&
-    jq -e '.tooltip | contains("Mode: auto") and contains("Night light: ON") and (contains("Expected:") | not)' "$TEST_TMP/status.json" >/dev/null
+    jq -e '.tooltip | contains("Night light: Auto (ON") and (contains("Mode:") | not) and (contains("Expected:") | not)' "$TEST_TMP/status.json" >/dev/null
 }
 
 test_status_expected_off_when_process_present() {
   export FAKE_SUNWAIT_POLL=DAY
   export FAKE_PIDOF_MATCH=hyprsunset
   status_json &&
-    jq -e '.tooltip | contains("Mode: auto") and contains("Night light: OFF") and (contains("Expected:") | not)' "$TEST_TMP/status.json" >/dev/null
+    jq -e '.tooltip | contains("Night light: Auto (OFF)") and (contains("Mode:") | not) and (contains("Expected:") | not)' "$TEST_TMP/status.json" >/dev/null
 }
 
 test_status_malformed_sunwait_still_json() {
@@ -459,8 +503,9 @@ test_status_timedatectl_fallback() {
 test_picker_first_selection_previews_without_save() {
   printf '__UP__\n__UP__\n__ESC__\n' > "$ROFI_QUEUE"
   run_script dot_local/bin/executable_hyprsunset-temp-picker &&
-    assert_log_contains "hyprsunset -t 3000" &&
-    assert_log_contains "hyprsunset -t 2500" &&
+    assert_log_contains "hyprctl hyprsunset temperature 3500" &&
+    assert_log_contains "hyprctl hyprsunset temperature 3000" &&
+    assert_log_contains "hyprctl hyprsunset temperature 2500" &&
     [ "$(cat "$HOME/.config/hyprsunset/temperature")" = "3500" ]
 }
 
@@ -468,25 +513,52 @@ test_picker_same_selection_confirms() {
   echo on > "$HOME/.config/hyprsunset/mode"
   printf 'Warm (2500K)\n' > "$ROFI_QUEUE"
   run_script dot_local/bin/executable_hyprsunset-temp-picker &&
-    assert_log_contains "hyprsunset -t 2500" &&
+    assert_log_contains "hyprctl hyprsunset temperature 2500" &&
     [ "$(cat "$HOME/.config/hyprsunset/temperature")" = "2500" ] &&
     assert_log_contains "notify-send -t 1500 Temperature: 2500K"
+}
+
+test_picker_opens_at_current_live_temp() {
+  echo on > "$HOME/.config/hyprsunset/mode"
+  echo 3500 > "$HOME/.config/hyprsunset/temperature"
+  echo 2500 > "$HOME/.config/hyprsunset/current-temperature"
+  printf '__ENTER__\n' > "$ROFI_QUEUE"
+  run_script dot_local/bin/executable_hyprsunset-temp-picker &&
+    assert_log_contains "rofi -dmenu -p Temperature (Enter save, Esc cancel) -i -format i -selected-row 3" &&
+    assert_log_not_contains "hyprctl hyprsunset temperature 3500" &&
+    [ "$(cat "$HOME/.config/hyprsunset/temperature")" = "2500" ]
+}
+
+test_picker_same_current_preview_noop() {
+  echo 3000 > "$HOME/.config/hyprsunset/current-temperature"
+  run_script dot_local/bin/executable_hyprsunset-temp-picker --preview "Cozy (3000K)" &&
+    assert_log_not_contains "hyprctl hyprsunset temperature 3000"
+}
+
+test_picker_ignores_rofi_initial_first_row_preview() {
+  export FAKE_ROFI_INITIAL_SELECTION_FIRST=1
+  echo 3000 > "$HOME/.config/hyprsunset/temperature"
+  echo 3000 > "$HOME/.config/hyprsunset/current-temperature"
+  printf '__ESC__\n' > "$ROFI_QUEUE"
+  run_script dot_local/bin/executable_hyprsunset-temp-picker &&
+    assert_log_contains "rofi-on-selection Extreme (1000K)" &&
+    assert_log_not_contains "hyprctl hyprsunset temperature 1000"
 }
 
 test_picker_different_selections_preview_each() {
   printf '__UP__\n__UP__\n__ESC__\n' > "$ROFI_QUEUE"
   run_script dot_local/bin/executable_hyprsunset-temp-picker &&
-    assert_log_contains "hyprsunset -t 3000" &&
-    assert_log_contains "hyprsunset -t 2500"
+    assert_log_contains "hyprctl hyprsunset temperature 3000" &&
+    assert_log_contains "hyprctl hyprsunset temperature 2500"
 }
 
 test_picker_cancel_restores_previous_when_on() {
   echo on > "$HOME/.config/hyprsunset/mode"
   printf '__UP__\n__UP__\n__ESC__\n' > "$ROFI_QUEUE"
   run_script dot_local/bin/executable_hyprsunset-temp-picker &&
-    assert_log_contains "hyprsunset -t 3000" &&
-    assert_log_contains "hyprsunset -t 2500" &&
-    assert_log_contains "hyprsunset -t 3500" &&
+    assert_log_contains "hyprctl hyprsunset temperature 3000" &&
+    assert_log_contains "hyprctl hyprsunset temperature 2500" &&
+    assert_log_contains "hyprctl hyprsunset temperature 3500" &&
     [ "$(cat "$HOME/.config/hyprsunset/temperature")" = "3500" ]
 }
 
@@ -494,8 +566,19 @@ test_picker_cancel_inactive_does_not_restore() {
   echo off > "$HOME/.config/hyprsunset/mode"
   printf '__UP__\n__ESC__\n' > "$ROFI_QUEUE"
   run_script dot_local/bin/executable_hyprsunset-temp-picker &&
-    assert_log_contains "hyprsunset -t 3000" &&
-    assert_log_contains "hyprsunset -i"
+    assert_log_contains "hyprctl hyprsunset temperature 3500" &&
+    assert_log_contains "hyprctl hyprsunset temperature 3000" &&
+    assert_log_contains "hyprctl hyprsunset identity"
+}
+
+test_picker_save_while_off_restores_off_state() {
+  echo off > "$HOME/.config/hyprsunset/mode"
+  printf 'Warm (2500K)\n' > "$ROFI_QUEUE"
+  run_script dot_local/bin/executable_hyprsunset-temp-picker &&
+    assert_log_contains "hyprctl hyprsunset temperature 3500" &&
+    assert_log_contains "hyprctl hyprsunset identity" &&
+    [ "$(cat "$HOME/.config/hyprsunset/temperature")" = "2500" ] &&
+    [ "$(cat "$HOME/.config/hyprsunset/applied-state")" = "off" ]
 }
 
 test_picker_missing_config_dir_saves() {
@@ -518,8 +601,8 @@ test_settings_launches_picker_and_signals_waybar() {
 test_true_highlight_preview_before_confirm() {
   printf '__UP__\n__UP__\n__DOWN__\n__ENTER__\n' > "$ROFI_QUEUE"
   run_script dot_local/bin/executable_hyprsunset-temp-picker &&
-    assert_log_contains "hyprsunset -t 3000" &&
-    assert_log_contains "hyprsunset -t 2500" &&
+    assert_log_contains "hyprctl hyprsunset temperature 3000" &&
+    assert_log_contains "hyprctl hyprsunset temperature 2500" &&
     [ "$(cat "$HOME/.config/hyprsunset/temperature")" = "3000" ]
 }
 
@@ -808,9 +891,13 @@ run_gui_tests() {
   group "GUI/preview diagnostic tests"
   run_case "picker: accepted value previews without saving" test_picker_first_selection_previews_without_save
   run_case "picker: same value twice confirms and saves" test_picker_same_selection_confirms
+  run_case "picker: opens at current live temperature" test_picker_opens_at_current_live_temp
+  run_case "picker: same current preview is no-op" test_picker_same_current_preview_noop
+  run_case "picker: ignores rofi startup first-row preview" test_picker_ignores_rofi_initial_first_row_preview
   run_case "picker: different accepted values preview each" test_picker_different_selections_preview_each
   run_case "picker: cancel restores previous temp when active" test_picker_cancel_restores_previous_when_on
   run_case "picker: cancel while inactive does not restore" test_picker_cancel_inactive_does_not_restore
+  run_case "picker: save while off restores off state" test_picker_save_while_off_restores_off_state
   run_case "picker: missing config dir can save" test_picker_missing_config_dir_saves
   run_case "settings: launches picker and signals waybar" test_settings_launches_picker_and_signals_waybar
   run_case "picker: highlight navigation previews before confirmation" test_true_highlight_preview_before_confirm

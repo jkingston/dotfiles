@@ -31,22 +31,19 @@ printf '%s\n' "$NEXT_MODE" > "$MODE_FILE"
 TEMP=$(cat "$CONFIG_DIR/temperature" 2>/dev/null || echo "3500")
 STATE=$(cat "$CONFIG_DIR/applied-state" 2>/dev/null || echo off)
 
-case "$NEXT_MODE:$STATE" in
-  on:on)
-    MESSAGE="Night Light: On (${TEMP}K)"
-    ;;
-  off:off)
-    MESSAGE="Night Light: Off"
-    ;;
-  auto:on)
-    MESSAGE="Night Light: Auto (On, ${TEMP}K)"
-    ;;
-  auto:off)
-    MESSAGE="Night Light: Auto (Off)"
+case "$STATE" in
+  on)
+    STATE_LABEL="ON (${TEMP}K)"
     ;;
   *)
-    MESSAGE="Night Light: ${NEXT_MODE}"
+    STATE_LABEL="OFF"
     ;;
 esac
 
-notify-send -t 1500 "$MESSAGE"
+if [ "$NEXT_MODE" = "auto" ]; then
+  LABEL="Auto (${STATE_LABEL})"
+else
+  LABEL="$STATE_LABEL"
+fi
+
+notify-send -t 1500 "Night Light: ${LABEL}"

@@ -3,6 +3,9 @@
 
 CONFIG_DIR="$HOME/.config/hyprsunset"
 PREV_TEMP=$(cat "$CONFIG_DIR/temperature" 2>/dev/null || echo "3500")
+CURRENT_TEMP_FILE="$CONFIG_DIR/current-temperature"
+PREVIEW_SESSION_FILE="$CONFIG_DIR/preview-session"
+RUN_UNIT="hyprsunset-current.service"
 
 LABELS=(
   "Extreme (1000K)"
@@ -17,6 +20,7 @@ LABELS=(
 VALUES=(1000 1500 2000 2500 3000 3500 4000 4500)
 
 MENU=$(printf '%s\n' "${LABELS[@]}")
+SCRIPT_PATH=$(readlink -f "$0" 2>/dev/null || printf '%s\n' "$0")
 
 clamp_index() {
   local index="$1"
@@ -31,11 +35,87 @@ clamp_index() {
   fi
 }
 
-apply_temp() {
+stop_hyprsunset() {
+  systemctl --user stop hyprsunset.service >/dev/null 2>&1 || true
+  systemctl --user stop "$RUN_UNIT" >/dev/null 2>&1 || true
   pkill -x hyprsunset 2>/dev/null
   while pgrep -x hyprsunset >/dev/null; do sleep 0.1; done
-  hyprsunset -t "$1"
 }
+
+start_hyprsunset_daemon() {
+  if pgrep -x hyprsunset >/dev/null && ! systemctl --user show "$RUN_UNIT" \
+      --property=ExecStart --value 2>/dev/null | grep -E -- 'hyprsunset (-t|-i)' >/dev/null; then
+    return 0
+  fi
+
+  systemctl --user stop "$RUN_UNIT" >/dev/null 2>&1 || true
+
+  if systemctl --user start hyprsunset.service >/dev/null 2>&1; then
+    return 0
+  fi
+
+  if command -v systemd-run >/dev/null 2>&1 &&
+      systemd-run --user --unit="${RUN_UNIT%.service}" --collect --quiet hyprsunset >/dev/null 2>&1; then
+    return 0
+  fi
+
+  hyprsunset >/dev/null 2>&1 &
+}
+
+apply_temp() {
+  local attempt
+
+  start_hyprsunset_daemon
+  if command -v hyprctl >/dev/null 2>&1; then
+    for attempt in $(seq 1 10); do
+      if hyprctl hyprsunset temperature "$1" >/dev/null 2>&1; then
+        mkdir -p "$CONFIG_DIR"
+        printf '%s\n' "$1" > "$CURRENT_TEMP_FILE"
+        return 0
+      fi
+      sleep 0.05
+    done
+  fi
+
+  stop_hyprsunset
+  hyprsunset -t "$1" >/dev/null 2>&1 &
+  mkdir -p "$CONFIG_DIR"
+  printf '%s\n' "$1" > "$CURRENT_TEMP_FILE"
+}
+
+temp_for_label() {
+  local selected="$1"
+  local index
+
+  for index in "${!LABELS[@]}"; do
+    if [ "${LABELS[$index]}" = "$selected" ]; then
+      echo "${VALUES[$index]}"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+if [ "${1:-}" = "--preview" ]; then
+  if TEMP=$(temp_for_label "${2:-}"); then
+    if [ -f "$PREVIEW_SESSION_FILE" ]; then
+      read -r OPEN_TEMP OPEN_TIME SEEN_PREVIEW < "$PREVIEW_SESSION_FILE"
+      NOW=$(date +%s%3N)
+      if [ "${SEEN_PREVIEW:-0}" = "0" ]; then
+        printf '%s %s 1\n' "$OPEN_TEMP" "$OPEN_TIME" > "$PREVIEW_SESSION_FILE"
+        if [ "$TEMP" = "${VALUES[0]}" ] && [ "$TEMP" != "$OPEN_TEMP" ] && [ "$((NOW - OPEN_TIME))" -lt 500 ]; then
+          exit 0
+        fi
+      fi
+    fi
+
+    if [ "$(cat "$CURRENT_TEMP_FILE" 2>/dev/null || true)" != "$TEMP" ]; then
+      apply_temp "$TEMP"
+    fi
+  fi
+  exit 0
+fi
 
 selection_index() {
   local selected="$1"
@@ -65,53 +145,36 @@ index_for_temp() {
   selection_index "Soft (3500K)"
 }
 
-CURRENT_INDEX=$(index_for_temp "$PREV_TEMP")
+CURRENT_TEMP=$(cat "$CURRENT_TEMP_FILE" 2>/dev/null || echo "$PREV_TEMP")
+CURRENT_INDEX=$(index_for_temp "$CURRENT_TEMP")
+CURRENT_VALUE="${VALUES[$CURRENT_INDEX]}"
 
-while true; do
-  SELECTED_INDEX=$(printf '%s\n' "$MENU" | rofi \
-    -dmenu \
-    -p "Temperature (Enter save, Esc cancel)" \
-    -i \
-    -format i \
-    -selected-row "$CURRENT_INDEX" \
-    -kb-row-down "" \
-    -kb-row-up "" \
-    -kb-custom-1 Down \
-    -kb-custom-2 Up)
-  ROFI_STATUS=$?
+if [ "$(cat "$CURRENT_TEMP_FILE" 2>/dev/null || true)" != "$CURRENT_VALUE" ]; then
+  apply_temp "$CURRENT_VALUE"
+fi
 
-  if [ "$ROFI_STATUS" -eq 1 ]; then
-    ~/.local/bin/hyprsunset-apply
-    exit 0
-  fi
+mkdir -p "$CONFIG_DIR"
+printf '%s %s 0\n' "$CURRENT_VALUE" "$(date +%s%3N)" > "$PREVIEW_SESSION_FILE"
 
-  if ! [[ "$SELECTED_INDEX" =~ ^[0-9]+$ ]]; then
-    ~/.local/bin/hyprsunset-apply
-    exit 0
-  fi
+SELECTED_INDEX=$(printf '%s\n' "$MENU" | rofi \
+  -dmenu \
+  -p "Temperature (Enter save, Esc cancel)" \
+  -i \
+  -format i \
+  -selected-row "$CURRENT_INDEX" \
+  -on-selection-changed "bash \"$SCRIPT_PATH\" --preview \"{entry}\"")
+ROFI_STATUS=$?
 
-  CURRENT_INDEX=$(clamp_index "$SELECTED_INDEX")
+if [ "$ROFI_STATUS" -ne 0 ] || ! [[ "$SELECTED_INDEX" =~ ^[0-9]+$ ]]; then
+  rm -f "$PREVIEW_SESSION_FILE"
+  ~/.local/bin/hyprsunset-apply
+  exit 0
+fi
 
-  case "$ROFI_STATUS" in
-    0)
-      VALUE="${VALUES[$CURRENT_INDEX]}"
-      mkdir -p "$CONFIG_DIR"
-      echo "$VALUE" > "$CONFIG_DIR/temperature"
-      ~/.local/bin/hyprsunset-apply
-      notify-send -t 1500 "Temperature: ${VALUE}K"
-      exit 0
-      ;;
-    10)
-      CURRENT_INDEX=$(clamp_index "$((CURRENT_INDEX + 1))")
-      apply_temp "${VALUES[$CURRENT_INDEX]}"
-      ;;
-    11)
-      CURRENT_INDEX=$(clamp_index "$((CURRENT_INDEX - 1))")
-      apply_temp "${VALUES[$CURRENT_INDEX]}"
-      ;;
-    *)
-      ~/.local/bin/hyprsunset-apply
-      exit 0
-      ;;
-  esac
-done
+CURRENT_INDEX=$(clamp_index "$SELECTED_INDEX")
+VALUE="${VALUES[$CURRENT_INDEX]}"
+mkdir -p "$CONFIG_DIR"
+echo "$VALUE" > "$CONFIG_DIR/temperature"
+rm -f "$PREVIEW_SESSION_FILE"
+~/.local/bin/hyprsunset-apply
+notify-send -t 1500 "Temperature: ${VALUE}K"

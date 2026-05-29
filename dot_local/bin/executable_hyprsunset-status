@@ -38,21 +38,31 @@ STATE=$(desired_state)
 # presence is not a reliable on/off signal.
 if [ "$STATE" = "on" ]; then
   ICON="󱩌"
-  LABEL="ON (${TEMP}K)"
+  STATE_LABEL="ON (${TEMP}K)"
 else
   ICON="󰹏"
-  LABEL="OFF"
+  STATE_LABEL="OFF"
 fi
 
-# Parse the actual sunrise/sunset row. Twilight rows can legitimately start
-# after 02:00 in summer, but they are not the sunset time we want to display.
-REPORT=$(sunwait report "$LAT" "$LON")
-DAYLIGHT_LINE=$(printf '%s\n' "$REPORT" | grep -E '(^|[[:space:]])Daylight:' | grep -v 'with ' | head -n 1)
-if [ -z "$DAYLIGHT_LINE" ]; then
-  DAYLIGHT_LINE=$(printf '%s\n' "$REPORT" | grep "Day with twilight" | head -n 1)
+if [ "$MODE" = "auto" ]; then
+  LABEL="Auto (${STATE_LABEL})"
+else
+  LABEL="$STATE_LABEL"
 fi
-SUNRISE=$(printf '%s\n' "$DAYLIGHT_LINE" | grep -oE '[0-9]{1,2}:[0-9]{2}' | sed -n '1p')
-SUNSET=$(printf '%s\n' "$DAYLIGHT_LINE" | grep -oE '[0-9]{1,2}:[0-9]{2}' | sed -n '2p')
+
+SUN_TIMES=$(sunwait list 1 daylight "$LAT" "$LON" 2>/dev/null | head -n 1)
+SUNRISE=$(printf '%s\n' "$SUN_TIMES" | grep -oE '[0-9]{1,2}:[0-9]{2}' | sed -n '1p')
+SUNSET=$(printf '%s\n' "$SUN_TIMES" | grep -oE '[0-9]{1,2}:[0-9]{2}' | sed -n '2p')
+
+if [ -z "$SUNRISE" ] || [ -z "$SUNSET" ]; then
+  REPORT=$(sunwait report "$LAT" "$LON" 2>/dev/null)
+  DAYLIGHT_LINE=$(printf '%s\n' "$REPORT" | grep -E '(^|[[:space:]])Daylight:' | grep -v 'with ' | head -n 1)
+  if [ -z "$DAYLIGHT_LINE" ]; then
+    DAYLIGHT_LINE=$(printf '%s\n' "$REPORT" | grep "Day with twilight" | head -n 1)
+  fi
+  SUNRISE=$(printf '%s\n' "$DAYLIGHT_LINE" | grep -oE '[0-9]{1,2}:[0-9]{2}' | sed -n '1p')
+  SUNSET=$(printf '%s\n' "$DAYLIGHT_LINE" | grep -oE '[0-9]{1,2}:[0-9]{2}' | sed -n '2p')
+fi
 
 # Output JSON for waybar
-printf '{"text": "%s", "tooltip": "Night light: %s\\nMode: %s\\n%s\\n☀️ %s  🌙 %s"}' "$ICON" "$LABEL" "$MODE" "$TZ" "$SUNRISE" "$SUNSET"
+printf '{"text": "%s", "tooltip": "Night light: %s\\n%s\\n☀️ %s  🌙 %s"}' "$ICON" "$LABEL" "$TZ" "$SUNRISE" "$SUNSET"
