@@ -9,6 +9,11 @@ export ELECTRON_OZONE_PLATFORM_HINT=auto
 export STARSHIP_CONFIG="$HOME/.config/starship/starship.toml"
 export PATH="$HOME/.local/bin:$PATH"
 
+case $- in
+  *i*) ;;
+  *) return ;;
+esac
+
 # Aliases - Navigation
 alias ..='cd ..'
 alias ...='cd ../..'
