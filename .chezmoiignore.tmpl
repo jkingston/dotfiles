@@ -1,47 +1,42 @@
 DESKTOPS.md
 install.sh
 test-vm.sh
-{{ if or (eq .desktop "gnome") (eq .desktop "kde") }}
+{{ if ne .chezmoi.os "linux" }}
 .config/hypr/**
 .config/waybar/**
 .config/mako/**
 .config/waypaper/**
 .config/rofi/**
-.config/systemd/user/hyprsunset-check.*
-.config/systemd/user/wallpaper-rotate.*
+.config/systemd/user/**
 .local/bin/hyprsunset-*
 .local/bin/wallpaper-random
+.local/bin/wallpaper-sync
 .local/bin/waybar-sysmon
 .local/bin/arch-update-menu
 .local/bin/arch-updates-check
+.local/bin/arch-update
 .local/bin/osk-toggle
 .local/bin/keybind-help
 .local/bin/rofi-clipboard
+.local/bin/hypr-power-menu
 dot_config/hypr/**
 dot_config/waybar/**
 dot_config/mako/**
 dot_config/waypaper/**
 dot_config/rofi/**
+dot_config/systemd/user/**
 .Xresources
 dot_Xresources
 dot_Xresources.tmpl
-dot_config/systemd/user/hyprsunset-check.*
-dot_config/systemd/user/wallpaper-rotate.*
 dot_local/bin/executable_hyprsunset-*
 dot_local/bin/executable_wallpaper-random
+dot_local/bin/executable_wallpaper-sync
 dot_local/bin/executable_waybar-sysmon
 dot_local/bin/executable_arch-update-menu
 dot_local/bin/executable_arch-updates-check
+dot_local/bin/executable_arch-update
 dot_local/bin/executable_osk-toggle
 dot_local/bin/executable_keybind-help
 dot_local/bin/executable_rofi-clipboard
-{{ end }}
-{{ if ne .desktop "gnome" }}
-.config/dconf/**
-dot_config/dconf/**
-dot_config/gnome-extensions.txt
-{{ end }}
-{{ if ne .desktop "kde" }}
-.config/kwinrc
-dot_config/kwinrc.tmpl
+dot_local/bin/executable_hypr-power-menu
 {{ end }}

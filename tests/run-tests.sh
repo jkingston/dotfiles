@@ -751,6 +751,27 @@ test_rofi_mako_style_contract() {
     assert_repo_contains dot_config/mako/config "font=Caskaydia Cove Nerd Font 10"
 }
 
+test_neovim_toolchain_contract() {
+  assert_repo_contains dot_config/nvim/init.lua 'vim.lsp.enable({ "lua_ls", "pyright", "rust_analyzer", "zls" })' &&
+    assert_repo_contains dot_config/nvim/init.lua 'python = { "ruff_format" }' &&
+    assert_repo_contains dot_config/mise/config.toml 'lua-language-server = "3"' &&
+    assert_repo_contains dot_config/mise/config.toml '"npm:pyright" = "latest"' &&
+    assert_repo_contains dot_config/mise/config.toml 'ruff = "latest"' &&
+    assert_repo_contains dot_config/mise/config.toml 'rust = "stable"' &&
+    assert_repo_contains run_onchange_after_install-mise-tools.sh.tmpl 'mise install --yes --cd "$HOME"' &&
+    assert_repo_contains run_onchange_after_install-mise-tools.sh.tmpl 'include "dot_config/mise/config.toml" | sha256sum' &&
+    assert_repo_contains dot_bashrc 'mise activate bash'
+}
+
+test_chezmoi_platform_contract() {
+  assert_repo_contains .chezmoi.toml.tmpl 'desktop = "hyprland"' &&
+    assert_repo_contains .chezmoi.toml.tmpl 'desktop = "none"' &&
+    assert_repo_contains .chezmoiignore.tmpl '{{ if ne .chezmoi.os "linux" }}' &&
+    assert_repo_contains .chezmoiignore.tmpl 'dot_config/hypr/**' &&
+    ! grep -F 'gnome' "$ROOT_DIR/.chezmoi.toml.tmpl" >/dev/null 2>&1 &&
+    ! grep -F 'kde' "$ROOT_DIR/.chezmoi.toml.tmpl" >/dev/null 2>&1
+}
+
 run_unit_tests() {
   group "Unit/script tests"
   run_case "toggle: auto -> on" test_toggle_auto_to_on
@@ -779,6 +800,8 @@ run_unit_tests() {
   run_case "status: malformed sunwait report still emits JSON" test_status_malformed_sunwait_still_json
   run_case "status: daylight line wins over astronomical twilight" test_status_uses_daylight_not_astronomical_twilight
   run_case "status: timedatectl fallback timezone" test_status_timedatectl_fallback
+  run_case "neovim: mise-managed toolchain contract" test_neovim_toolchain_contract
+  run_case "chezmoi: linux hyprland and mac shared config contract" test_chezmoi_platform_contract
 }
 
 run_gui_tests() {

@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# mise config hash: {{ include "dot_config/mise/config.toml" | sha256sum }}
+
+if ! command -v mise >/dev/null 2>&1; then
+  echo "mise is not installed; install mise and re-run chezmoi apply" >&2
+  exit 1
+fi
+
+if [ ! -f "$HOME/.config/mise/config.toml" ]; then
+  echo "mise config was not applied; skipping tool install" >&2
+  exit 1
+fi
+
+mise install --yes --cd "$HOME"

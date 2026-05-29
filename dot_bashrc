@@ -30,6 +30,9 @@ alias la='eza --icons=auto --git -la'
 alias lt='eza --icons=auto --git --tree'
 
 # Tool init
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)"
+fi
 eval "$(starship init bash)"
 eval "$(fzf --bash)"
 eval "$(zoxide init bash)"

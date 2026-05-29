@@ -1,0 +1,15 @@
+[settings]
+npm.package_manager = "npm"
+
+[tools]
+node = "lts"
+lua-language-server = "3"
+"npm:pyright" = "latest"
+"npm:prettier" = "3"
+ruff = "latest"
+rust = "stable"
+rust-analyzer = "latest"
+stylua = "latest"
+tree-sitter = "latest"
+zig = "latest"
+zls = "latest"

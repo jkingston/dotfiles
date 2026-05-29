@@ -29,7 +29,7 @@ plymouth
 pipewire pipewire-alsa pipewire-pulse pipewire-jack wireplumber
 ghostty starship fzf zoxide bat eza
 btop ripgrep fd jq tree unzip ncdu duf procs tldr git-delta
-github-cli direnv lazygit lazydocker
+github-cli direnv mise lazygit lazydocker
 ttf-jetbrains-mono-nerd ttf-cascadia-code-nerd noto-fonts noto-fonts-emoji
 ufw pacman-contrib bc libnotify
 ```
@@ -57,7 +57,7 @@ grimblast-git waypaper wvkbd rofi-power-menu catppuccin-gtk-theme-mocha sunwait
 
 ```bash
 chezmoi verify
-pacman -Q ghostty neovim starship ufw libnotify
+pacman -Q ghostty neovim starship mise ufw libnotify
 pacman -Q networkmanager bluez bluez-utils
 pacman -Q pipewire pipewire-pulse pipewire-alsa wireplumber pipewire-jack
 systemctl is-enabled NetworkManager

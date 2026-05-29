@@ -290,6 +290,7 @@ check "chezmoi initialized" "test -f ~/.config/chezmoi/chezmoi.toml && test -d ~
 check "ghostty installed" "pacman -Q ghostty"
 check "neovim installed" "pacman -Q neovim"
 check "starship installed" "pacman -Q starship"
+check "mise installed" "pacman -Q mise"
 check "plymouth installed" "pacman -Q plymouth"
 check "plymouth initramfs hook configured" "grep -Eq '^HOOKS=.*plymouth' /etc/mkinitcpio.conf"
 check "bashrc exists" "test -f ~/.bashrc"
