@@ -323,6 +323,16 @@ cd /tmp
 git clone https://aur.archlinux.org/yay-bin.git
 cd yay-bin && makepkg -si --noconfirm
 cd /tmp && rm -rf yay-bin
+
+cleanup_stale_gpg_locks() {
+    gpgconf --kill all >/dev/null 2>&1 || true
+    sleep 1
+    if ! { pgrep -u \"\$USER\" -x gpg >/dev/null 2>&1 || pgrep -u \"\$USER\" -x gpg-agent >/dev/null 2>&1 || pgrep -u \"\$USER\" -x dirmngr >/dev/null 2>&1; }; then
+        find \"\$HOME/.gnupg\" -type f -name '*.lock' -delete 2>/dev/null || true
+    fi
+}
+
+cleanup_stale_gpg_locks
 YAY_FLAGS=(--noconfirm)
 if [ '${UNATTENDED:-0}' = '1' ]; then
     YAY_FLAGS+=(--answerclean None --answerdiff None --mflags --skippgpcheck)
