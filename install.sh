@@ -163,7 +163,7 @@ COMMON_PACKAGES=(
 
 HYPRLAND_PACKAGES=(
     hyprland xdg-desktop-portal-hyprland xdg-desktop-portal-gtk
-    uwsm waybar mako hyprlock hypridle swww
+    uwsm waybar mako hyprlock hypridle awww
     rofi-wayland rofimoji wl-clipboard cliphist
     grim slurp swappy hyprpicker
     playerctl brightnessctl

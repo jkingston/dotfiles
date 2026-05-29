@@ -2,9 +2,23 @@
 WALLPAPER_DIR="$HOME/Pictures/Wallpapers"
 selected=$(find -L "$WALLPAPER_DIR" -type f \( -name "*.jpg" -o -name "*.jpeg" -o -name "*.png" -o -name "*.webp" \) 2>/dev/null | shuf -n1)
 if [ -n "$selected" ]; then
-  swww img "$selected" \
+  if ! awww query >/dev/null 2>&1; then
+    awww-daemon >/dev/null 2>&1 &
+    for _ in 1 2 3 4 5; do
+      sleep 0.2
+      awww query >/dev/null 2>&1 && break
+    done
+  fi
+
+  cursor_pos="$(hyprctl cursorpos 2>/dev/null || true)"
+  cursor_pos="${cursor_pos//[[:space:]]/}"
+  if [[ ! "$cursor_pos" =~ ^-?[0-9]+,-?[0-9]+$ ]]; then
+    cursor_pos="center"
+  fi
+
+  awww img "$selected" \
     --transition-type grow \
-    --transition-pos "$(hyprctl cursorpos)" \
+    --transition-pos "$cursor_pos" \
     --transition-duration 0.7 \
     --transition-fps 60 \
     --transition-bezier .43,1.19,1,.4

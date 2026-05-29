@@ -250,8 +250,11 @@ else
   /usr/bin/awk "$@"
 fi
 '
-  make_fake_bin swww '#!/usr/bin/env bash
-printf "swww %s\n" "$*" >> "$FAKE_LOG"
+  make_fake_bin awww '#!/usr/bin/env bash
+printf "awww %s\n" "$*" >> "$FAKE_LOG"
+'
+  make_fake_bin awww-daemon '#!/usr/bin/env bash
+printf "awww-daemon %s\n" "$*" >> "$FAKE_LOG"
 '
   make_fake_bin git '#!/usr/bin/env bash
 printf "git %s\n" "$*" >> "$FAKE_LOG"
@@ -694,8 +697,10 @@ test_osk_toggle_stops_when_present() {
 
 test_wallpaper_random_applies_image() {
   run_script dot_local/bin/executable_wallpaper-random &&
+    assert_log_contains "awww query" &&
     assert_log_contains "hyprctl cursorpos" &&
-    assert_log_contains "swww img $HOME/Pictures/Wallpapers/test.png" &&
+    assert_log_contains "awww img $HOME/Pictures/Wallpapers/test.png" &&
+    assert_log_contains "--transition-pos 100,200" &&
     assert_log_contains "--transition-type grow"
 }
 
@@ -795,7 +800,7 @@ test_hyprland_autostart_contract() {
     assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "exec-once = hypridle" &&
     assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "wallpaper-rotate.timer" &&
     ! grep -F "wallpaper-sync.timer" "$ROOT_DIR/dot_config/hypr/hyprland.conf.tmpl" >/dev/null 2>&1 &&
-    assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "exec-once = swww-daemon && ~/.local/bin/wallpaper-random"
+    assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "exec-once = ~/.local/bin/wallpaper-random"
 }
 
 test_hyprland_keybind_contract() {
@@ -946,7 +951,7 @@ run_hyprland_environment_tests() {
   run_case "sysmon: emits Waybar JSON" test_sysmon_emits_waybar_json
   run_case "osk: starts when absent" test_osk_toggle_starts_when_absent
   run_case "osk: stops when present" test_osk_toggle_stops_when_present
-  run_case "wallpaper: random image applies via swww" test_wallpaper_random_applies_image
+  run_case "wallpaper: random image applies via awww" test_wallpaper_random_applies_image
   run_case "wallpaper: checkout runs after chezmoi apply" test_wallpaper_checkout_runs_after_chezmoi_apply
   run_case "clipboard: rofi selection is decoded to wl-copy" test_rofi_clipboard_decodes_to_wl_copy
   run_case "keybind help: reads Hyprland binds and opens rofi" test_keybind_help_uses_hyprctl_and_rofi
