@@ -1,0 +1,15 @@
+{{ if eq .chezmoi.os "linux" -}}
+#!/usr/bin/env bash
+set -euo pipefail
+
+if command -v gsettings >/dev/null 2>&1; then
+    gsettings set org.gnome.desktop.interface color-scheme prefer-dark
+    gsettings set org.gnome.desktop.interface gtk-theme catppuccin-mocha-blue-standard+default
+    gsettings set org.gnome.desktop.interface icon-theme Adwaita
+    gsettings set org.gnome.desktop.interface font-name "Caskaydia Cove Nerd Font 10"
+fi
+
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl --user try-restart xdg-desktop-portal.service xdg-desktop-portal-gtk.service >/dev/null 2>&1 || true
+fi
+{{ end -}}

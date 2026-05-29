@@ -6,15 +6,97 @@ configuration {
     terminal: "ghostty";
 }
 
-window {
-    width: 600px;
-    border: 2px;
-    border-radius: 0px;
-    padding: 20px;
+* {
+    bg: rgba(17, 17, 27, 88%);
+    bg-input: rgba(24, 24, 36, 90%);
+    bg-selected: rgba(205, 214, 244, 10%);
+    fg: #cdd6f4;
+    fg-muted: #a6adc8;
+    accent: #89b4fa;
+    border: rgba(205, 214, 244, 12%);
+    urgent: #f38ba8;
+
+    background-color: transparent;
+    text-color: @fg;
+    font: "Caskaydia Cove Nerd Font 13";
 }
 
-mainbox { spacing: 10px; }
-inputbar { padding: 10px; border-radius: 0px; }
-listview { lines: 8; spacing: 5px; }
-element { padding: 10px; border-radius: 0px; }
-element-icon { size: 24px; }
+window {
+    location: center;
+    anchor: center;
+    width: 660px;
+    border: 1px;
+    border-color: @border;
+    border-radius: 18px;
+    padding: 10px;
+    background-color: @bg;
+}
+
+mainbox {
+    spacing: 8px;
+    background-color: transparent;
+}
+
+inputbar {
+    padding: 14px 16px;
+    border: 0;
+    border-radius: 14px;
+    background-color: @bg-input;
+    children: [prompt, entry];
+}
+
+prompt {
+    margin: 0 10px 0 0;
+    text-color: @accent;
+}
+
+entry {
+    placeholder: "Search";
+    placeholder-color: @fg-muted;
+    text-color: @fg;
+}
+
+listview {
+    lines: 8;
+    columns: 1;
+    fixed-height: true;
+    spacing: 2px;
+    padding: 2px 0 0 0;
+    background-color: transparent;
+}
+
+element {
+    padding: 9px 12px;
+    border: 0;
+    border-radius: 12px;
+    background-color: transparent;
+}
+
+element normal.normal,
+element alternate.normal,
+element normal.active,
+element alternate.active {
+    background-color: transparent;
+    text-color: @fg;
+}
+
+element selected.normal,
+element selected.active {
+    background-color: @bg-selected;
+    text-color: @fg;
+}
+
+element normal.urgent,
+element alternate.urgent,
+element selected.urgent {
+    text-color: @urgent;
+}
+
+element-icon {
+    size: 22px;
+    margin: 0 10px 0 0;
+}
+
+element-text {
+    vertical-align: 0.5;
+}
