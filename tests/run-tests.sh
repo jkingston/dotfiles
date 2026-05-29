@@ -890,6 +890,14 @@ test_chezmoi_workflow_contract() {
     assert_repo_contains install.sh "--promptInt 'border_size=\$BORDER'"
 }
 
+test_flatpak_package_contract() {
+  assert_repo_contains install.sh 'app.zen_browser.zen' &&
+    assert_repo_contains install.sh 'com.bitwarden.desktop' &&
+    assert_repo_contains install.sh 'org.localsend.localsend_app' &&
+    assert_repo_contains DESKTOPS.md 'com.bitwarden.desktop' &&
+    assert_repo_contains test-vm.sh 'Bitwarden Flatpak installed'
+}
+
 run_unit_tests() {
   group "Unit/script tests"
   run_case "toggle: auto -> on" test_toggle_auto_to_on
@@ -921,6 +929,7 @@ run_unit_tests() {
   run_case "neovim: mise-managed toolchain contract" test_neovim_toolchain_contract
   run_case "chezmoi: linux hyprland and mac shared config contract" test_chezmoi_platform_contract
   run_case "chezmoi: idiomatic workflow and installer contract" test_chezmoi_workflow_contract
+  run_case "flatpak: package install contract" test_flatpak_package_contract
 }
 
 run_gui_tests() {

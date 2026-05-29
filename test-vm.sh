@@ -301,6 +301,9 @@ check "gitconfig exists" "test -f ~/.gitconfig"
 check "boot partition private" "findmnt -no OPTIONS /boot | grep -Eq '(^|,)fmask=0077(,|$)' && findmnt -no OPTIONS /boot | grep -Eq '(^|,)dmask=0077(,|$)'"
 check "NetworkManager active" "systemctl is-active NetworkManager"
 check "bluetooth enabled" "systemctl is-enabled bluetooth"
+check "Zen Flatpak installed" "flatpak list --app --columns=application | grep -Fx app.zen_browser.zen"
+check "Bitwarden Flatpak installed" "flatpak list --app --columns=application | grep -Fx com.bitwarden.desktop"
+check "LocalSend Flatpak installed" "flatpak list --app --columns=application | grep -Fx org.localsend.localsend_app"
 
 # Desktop-specific checks
 if { $desktop eq "hyprland" } {

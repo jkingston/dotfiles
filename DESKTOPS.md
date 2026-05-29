@@ -58,6 +58,7 @@ Flatpak apps:
 
 ```bash
 app.zen_browser.zen
+com.bitwarden.desktop
 org.localsend.localsend_app
 ```
 
@@ -68,6 +69,7 @@ chezmoi verify
 pacman -Q ghostty neovim starship mise ufw libnotify
 pacman -Q flatpak
 flatpak list --app | grep -F app.zen_browser.zen
+flatpak list --app | grep -F com.bitwarden.desktop
 flatpak list --app | grep -F org.localsend.localsend_app
 pacman -Q networkmanager bluez bluez-utils
 pacman -Q pipewire pipewire-pulse pipewire-alsa wireplumber pipewire-jack

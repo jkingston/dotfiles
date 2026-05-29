@@ -179,6 +179,7 @@ BASE_PACKAGES+=("${PROFILE_PACKAGES[@]}")
 
 FLATPAK_PACKAGES=(
     app.zen_browser.zen
+    com.bitwarden.desktop
     org.localsend.localsend_app
 )
 
