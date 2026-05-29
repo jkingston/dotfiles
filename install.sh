@@ -155,7 +155,7 @@ COMMON_PACKAGES=(
     btop ripgrep fd jq tree unzip ncdu duf procs tldr git-delta
     github-cli direnv lazygit lazydocker
     # Fonts
-    ttf-jetbrains-mono-nerd ttf-cascadia-code-nerd noto-fonts
+    ttf-jetbrains-mono-nerd ttf-cascadia-code-nerd noto-fonts noto-fonts-emoji
     # Misc
     ufw pacman-contrib bc libnotify
 )

@@ -748,7 +748,7 @@ test_rofi_mako_style_contract() {
     assert_repo_contains dot_config/rofi/config.rasi "border-radius: 0px" &&
     assert_repo_contains dot_config/mako/config "anchor=top-right" &&
     assert_repo_contains dot_config/mako/config "layer=overlay" &&
-    assert_repo_contains dot_config/mako/config "font=JetBrainsMono Nerd Font 10"
+    assert_repo_contains dot_config/mako/config "font=Caskaydia Cove Nerd Font 10"
 }
 
 run_unit_tests() {

@@ -7,7 +7,7 @@
   border: none;
   border-radius: 0;
   min-height: 0;
-  font-family: 'JetBrainsMono Nerd Font';
+  font-family: 'Caskaydia Cove Nerd Font', 'Noto Color Emoji', 'Noto Sans Symbols 2', 'Noto Sans';
   font-size: 12px;
 }
 
@@ -20,7 +20,7 @@ window#waybar {
 
 #workspaces button {
   all: initial;
-  font-family: 'JetBrainsMono Nerd Font';
+  font-family: 'Caskaydia Cove Nerd Font', 'Noto Color Emoji', 'Noto Sans Symbols 2', 'Noto Sans';
   background-color: transparent;
   padding: 0 6px;
   margin: 0 1.5px;
