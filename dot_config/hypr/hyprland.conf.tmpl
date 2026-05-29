@@ -59,13 +59,13 @@ exec-once = swww-daemon && ~/.local/bin/wallpaper-random
 # App launchers
 bind = $mod, RETURN, exec, uwsm app -- ghostty
 bind = $mod, SPACE, exec, uwsm app -- rofi -show drun
-bind = $mod_shift, B, exec, uwsm app -- librewolf
+bind = $mod_shift, B, exec, uwsm app -- flatpak run app.zen_browser.zen
 bind = $mod_shift, N, exec, uwsm app -- ghostty -e nvim
 bind = $mod_shift, T, exec, uwsm app -- ghostty -e btop
 bind = $mod_shift, F, exec, uwsm app -- nautilus
 bind = $mod_shift, D, exec, uwsm app -- ghostty -e lazydocker
 bind = $mod_shift, W, exec, uwsm app -- ghostty --class=com.floating.tui -e impala
-bind = $mod_ctrl, S, exec, uwsm app -- localsend
+bind = $mod_ctrl, S, exec, uwsm app -- flatpak run org.localsend.localsend_app
 
 # Window management
 bind = $mod, W, killactive,

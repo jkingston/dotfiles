@@ -7,7 +7,7 @@ session, login flow, applets, and desktop-specific controls.
 ## Rules
 
 1. Keep personal workflow tools common.
-   Examples: `ghostty`, `neovim`, `starship`, `lazygit`, `librewolf-bin`.
+   Examples: `ghostty`, `neovim`, `starship`, `lazygit`.
 
 2. Keep Hyprland explicit.
    Hyprland is assembled from smaller tools, so the package set lists
@@ -25,6 +25,7 @@ base linux linux-firmware "$MICROCODE"
 mkinitcpio iptables-nft
 networkmanager bluez bluez-utils
 git neovim sudo base-devel chezmoi
+flatpak
 plymouth
 pipewire pipewire-alsa pipewire-pulse pipewire-jack wireplumber
 ghostty starship fzf zoxide bat eza
@@ -53,11 +54,21 @@ Hyprland-specific AUR packages:
 grimblast-git waypaper wvkbd rofi-power-menu catppuccin-gtk-theme-mocha sunwait
 ```
 
+Flatpak apps:
+
+```bash
+app.zen_browser.zen
+org.localsend.localsend_app
+```
+
 ## Verification
 
 ```bash
 chezmoi verify
 pacman -Q ghostty neovim starship mise ufw libnotify
+pacman -Q flatpak
+flatpak list --app | grep -F app.zen_browser.zen
+flatpak list --app | grep -F org.localsend.localsend_app
 pacman -Q networkmanager bluez bluez-utils
 pacman -Q pipewire pipewire-pulse pipewire-alsa wireplumber pipewire-jack
 systemctl is-enabled NetworkManager

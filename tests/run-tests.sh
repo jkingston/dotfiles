@@ -261,7 +261,7 @@ printf "hyprctl %s\n" "$*" >> "$FAKE_LOG"
 if [ "${1:-}" = "cursorpos" ]; then
   echo "100,200"
 elif [ "${1:-}" = "-j" ] && [ "${2:-}" = "binds" ]; then
-  printf "%s\n" "[{\"modmask\":64,\"key\":\"Return\",\"dispatcher\":\"exec\",\"arg\":\"uwsm app -- ghostty\"},{\"modmask\":65,\"key\":\"B\",\"dispatcher\":\"exec\",\"arg\":\"uwsm app -- librewolf\"}]"
+  printf "%s\n" "[{\"modmask\":64,\"key\":\"Return\",\"dispatcher\":\"exec\",\"arg\":\"uwsm app -- ghostty\"},{\"modmask\":65,\"key\":\"B\",\"dispatcher\":\"exec\",\"arg\":\"uwsm app -- flatpak run app.zen_browser.zen\"}]"
 fi
 '
   make_fake_bin shuf '#!/usr/bin/env bash
@@ -797,6 +797,8 @@ test_hyprland_autostart_contract() {
 
 test_hyprland_keybind_contract() {
   assert_repo_contains dot_config/hypr/hyprland.conf.tmpl 'bind = $mod, SPACE, exec, uwsm app -- rofi -show drun' &&
+    assert_repo_contains dot_config/hypr/hyprland.conf.tmpl 'bind = $mod_shift, B, exec, uwsm app -- flatpak run app.zen_browser.zen' &&
+    assert_repo_contains dot_config/hypr/hyprland.conf.tmpl 'bind = $mod_ctrl, S, exec, uwsm app -- flatpak run org.localsend.localsend_app' &&
     assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "bind = , Print, exec, grimblast edit area" &&
     assert_repo_contains dot_config/hypr/hyprland.conf.tmpl 'bind = $mod_ctrl, V, exec, ~/.local/bin/rofi-clipboard' &&
     assert_repo_contains dot_config/hypr/hyprland.conf.tmpl 'bind = $mod_ctrl, I, exec, hyprlock' &&
@@ -852,6 +854,7 @@ test_neovim_toolchain_contract() {
     assert_repo_contains dot_config/mise/config.toml '"npm:pyright" = "latest"' &&
     assert_repo_contains dot_config/mise/config.toml 'ruff = "latest"' &&
     assert_repo_contains dot_config/mise/config.toml 'rust = "stable"' &&
+    assert_repo_contains run_onchange_after_install-mise-tools.sh.tmpl 'mise install --yes --cd "$HOME" node' &&
     assert_repo_contains run_onchange_after_install-mise-tools.sh.tmpl 'mise install --yes --cd "$HOME"' &&
     assert_repo_contains run_onchange_after_install-mise-tools.sh.tmpl 'include "dot_config/mise/config.toml" | sha256sum' &&
     assert_repo_contains dot_bashrc 'mise activate bash'
@@ -864,6 +867,19 @@ test_chezmoi_platform_contract() {
     assert_repo_contains .chezmoiignore.tmpl 'dot_config/hypr/**' &&
     ! grep -F 'gnome' "$ROOT_DIR/.chezmoi.toml.tmpl" >/dev/null 2>&1 &&
     ! grep -F 'kde' "$ROOT_DIR/.chezmoi.toml.tmpl" >/dev/null 2>&1
+}
+
+test_chezmoi_workflow_contract() {
+  assert_repo_contains AGENTS.md 'chezmoi source-path' &&
+    assert_repo_contains AGENTS.md 'chezmoi diff' &&
+    assert_repo_contains AGENTS.md 'chezmoi apply' &&
+    assert_repo_contains AGENTS.md 'chezmoi re-add' &&
+    assert_repo_contains AGENTS.md 'source changes' &&
+    assert_repo_contains install.sh 'chezmoi init --apply' &&
+    assert_repo_contains install.sh "--promptString 'hostname=\$HOSTNAME'" &&
+    assert_repo_contains install.sh "--promptBool 'is_laptop=\$IS_LAPTOP'" &&
+    assert_repo_contains install.sh "--promptString 'gpu (intel, amd, or none)=\$GPU'" &&
+    assert_repo_contains install.sh "--promptInt 'border_size=\$BORDER'"
 }
 
 run_unit_tests() {
@@ -896,6 +912,7 @@ run_unit_tests() {
   run_case "status: timedatectl fallback timezone" test_status_timedatectl_fallback
   run_case "neovim: mise-managed toolchain contract" test_neovim_toolchain_contract
   run_case "chezmoi: linux hyprland and mac shared config contract" test_chezmoi_platform_contract
+  run_case "chezmoi: idiomatic workflow and installer contract" test_chezmoi_workflow_contract
 }
 
 run_gui_tests() {

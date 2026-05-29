@@ -148,6 +148,7 @@ COMMON_PACKAGES=(
     mkinitcpio iptables-nft
     networkmanager bluez bluez-utils
     git neovim sudo base-devel chezmoi
+    flatpak
     plymouth
     pipewire pipewire-alsa pipewire-pulse pipewire-jack wireplumber
     # Terminal & tools
@@ -175,6 +176,11 @@ BASE_PACKAGES=("${COMMON_PACKAGES[@]}" "${HYPRLAND_PACKAGES[@]}")
 
 # Add extra packages for this profile
 BASE_PACKAGES+=("${PROFILE_PACKAGES[@]}")
+
+FLATPAK_PACKAGES=(
+    app.zen_browser.zen
+    org.localsend.localsend_app
+)
 
 info "Installing base system (this will take a while)..."
 pacstrap -K /mnt "${BASE_PACKAGES[@]}"
@@ -302,6 +308,15 @@ ufw allow 53317 2>/dev/null || true
 ufw --force enable 2>/dev/null || true
 "
 
+# --- Flatpak apps ---
+info "Configuring Flathub and installing Flatpak apps..."
+
+arch-chroot /mnt bash -c "
+set -e
+flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+flatpak install --system -y flathub ${FLATPAK_PACKAGES[*]}
+"
+
 # --- AUR packages ---
 info "Installing AUR helper and packages..."
 
@@ -312,11 +327,7 @@ cleanup_temp_aur() {
 }
 trap cleanup_temp_aur EXIT
 
-AUR_PACKAGES="localsend-bin"
-if [ "${UNATTENDED:-0}" != "1" ]; then
-    AUR_PACKAGES="$AUR_PACKAGES librewolf-bin"
-fi
-AUR_PACKAGES="$AUR_PACKAGES grimblast-git waypaper wvkbd rofi-power-menu catppuccin-gtk-theme-mocha sunwait"
+AUR_PACKAGES="grimblast-git waypaper wvkbd rofi-power-menu catppuccin-gtk-theme-mocha sunwait"
 
 arch-chroot /mnt su - "$USERNAME" -c "
 cd /tmp
@@ -347,34 +358,28 @@ trap - EXIT
 # --- Chezmoi dotfiles ---
 info "Setting up dotfiles with chezmoi..."
 
-# Write chezmoi config for this machine
-mkdir -p "/mnt/home/$USERNAME/.config/chezmoi"
-
-cat > "/mnt/home/$USERNAME/.config/chezmoi/chezmoi.toml" <<CHEZCONF
-[data]
-    desktop = "hyprland"
-    hostname = "$HOSTNAME"
-    is_laptop = $IS_LAPTOP
-    is_vm = $IS_VM
-    monitor_name = "$MONITOR"
-    monitor_scale = "$SCALE"
-    gaps_inner = $GAPS_INNER
-    gaps_outer = $GAPS_OUTER
-    border_size = $BORDER
-    gpu = "$GPU"
-CHEZCONF
-
-# Clone or copy dotfiles and apply (clone manually to avoid TTY prompt from chezmoi init)
-mkdir -p "/mnt/home/$USERNAME/.local/share"
+mkdir -p "/mnt/home/$USERNAME/.config/chezmoi" "/mnt/home/$USERNAME/.local/share"
 chown -R 1000:1000 "/mnt/home/$USERNAME/.config" "/mnt/home/$USERNAME/.local"
 if [ -n "${DOTFILES_SOURCE:-}" ] && [ -d "$DOTFILES_SOURCE" ]; then
     mkdir -p "/mnt/home/$USERNAME/.local/share/chezmoi"
     cp -R "$DOTFILES_SOURCE/." "/mnt/home/$USERNAME/.local/share/chezmoi"
+    chown -R 1000:1000 "/mnt/home/$USERNAME/.local/share/chezmoi"
+    CHEZMOI_INIT_REPO=""
 else
-    arch-chroot /mnt su - "$USERNAME" -c "git clone https://github.com/jkingston/dotfiles.git ~/.local/share/chezmoi"
+    CHEZMOI_INIT_REPO="https://github.com/jkingston/dotfiles.git"
 fi
-chown -R 1000:1000 "/mnt/home/$USERNAME/.config/chezmoi" "/mnt/home/$USERNAME/.local/share/chezmoi"
-arch-chroot /mnt su - "$USERNAME" -c "chezmoi apply"
+chown -R 1000:1000 "/mnt/home/$USERNAME/.config/chezmoi"
+arch-chroot /mnt su - "$USERNAME" -c "chezmoi init --apply \
+    --promptString 'hostname=$HOSTNAME' \
+    --promptBool 'is_laptop=$IS_LAPTOP' \
+    --promptBool 'is_vm=$IS_VM' \
+    --promptString 'gpu (intel, amd, or none)=$GPU' \
+    --promptString 'monitor_name (e.g. eDP-1, DP-1)=$MONITOR' \
+    --promptString 'monitor_scale (e.g. 1.25)=$SCALE' \
+    --promptInt 'gaps_inner=$GAPS_INNER' \
+    --promptInt 'gaps_outer=$GAPS_OUTER' \
+    --promptInt 'border_size=$BORDER' \
+    $CHEZMOI_INIT_REPO"
 
 # Fix ownership
 chown -R 1000:1000 "/mnt/home/$USERNAME"
