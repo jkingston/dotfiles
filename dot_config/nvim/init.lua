@@ -27,6 +27,7 @@ vim.pack.add({
 	"https://github.com/nvim-lualine/lualine.nvim",
 	"https://github.com/stevearc/conform.nvim",
 	"https://github.com/folke/which-key.nvim",
+	"https://github.com/Saghen/blink.lib",
 	"https://github.com/Saghen/blink.cmp",
 })
 
@@ -138,7 +139,9 @@ vim.api.nvim_create_autocmd("LspAttach", {
 })
 
 -- Completion
-require("blink.cmp").setup({
+local cmp = require("blink.cmp")
+cmp.build():wait(60000)
+cmp.setup({
 	completion = {
 		ghost_text = { enabled = true },
 	},
