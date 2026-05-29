@@ -3,12 +3,12 @@ set -euo pipefail
 
 # Arch Linux automated installer
 # Run from the Arch live ISO:
-#   curl -sL https://raw.githubusercontent.com/jkingston/dotfiles/main/install.sh | bash -s -- <profile> [desktop]
+#   curl -sL https://raw.githubusercontent.com/jkingston/dotfiles/main/install.sh | bash -s -- <profile>
 # Or locally:
-#   ./install.sh <profile> [desktop]
+#   ./install.sh <profile>
 #
 # Unattended mode (for VM testing):
-#   UNATTENDED=1 PASSWORD=mypass ./install.sh <profile> [desktop]
+#   UNATTENDED=1 PASSWORD=mypass ./install.sh <profile>
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -63,22 +63,22 @@ load_profile() {
 
 # --- Parse arguments ---
 PROFILE="${1:-}"
-DESKTOP="${2:-hyprland}"
+DESKTOP="hyprland"
 
 if [ -z "$PROFILE" ] || ! load_profile "$PROFILE"; then
-    echo "Usage: $0 <profile> [desktop]"
+    echo "Usage: $0 <profile>"
     echo ""
     echo "Available profiles:"
     for p in "${PROFILES[@]}"; do
         echo "  $p"
     done
     echo ""
-    echo "Available desktops: hyprland (default), gnome, kde"
+    echo "Desktop: hyprland"
     exit 1
 fi
 
-if [[ "$DESKTOP" != "hyprland" && "$DESKTOP" != "gnome" && "$DESKTOP" != "kde" ]]; then
-    error "Unknown desktop: $DESKTOP (choose hyprland, gnome, or kde)"
+if [ $# -gt 1 ]; then
+    error "Desktop selection has been removed; only hyprland is supported"
 fi
 
 DISK="${INSTALL_DISK:-$PROFILE_DISK}"
@@ -171,30 +171,7 @@ HYPRLAND_PACKAGES=(
     swayosd bluetui pulsemixer rofi-calc hyprsunset impala
 )
 
-GNOME_PACKAGES=(
-    gnome gdm
-    gnome-tweaks gnome-shell-extensions gnome-browser-connector
-    xdg-desktop-portal-gnome
-    xdg-user-dirs dconf
-    power-profiles-daemon
-)
-
-KDE_PACKAGES=(
-    plasma-meta sddm
-    dolphin dolphin-plugins
-    kio-admin kio-extras kio-fuse
-    ffmpegthumbs kdegraphics-thumbnailers
-    okular gwenview ark kcalc kate
-)
-
-BASE_PACKAGES=("${COMMON_PACKAGES[@]}")
-if [ "$DESKTOP" = "hyprland" ]; then
-    BASE_PACKAGES+=("${HYPRLAND_PACKAGES[@]}")
-elif [ "$DESKTOP" = "gnome" ]; then
-    BASE_PACKAGES+=("${GNOME_PACKAGES[@]}")
-elif [ "$DESKTOP" = "kde" ]; then
-    BASE_PACKAGES+=("${KDE_PACKAGES[@]}")
-fi
+BASE_PACKAGES=("${COMMON_PACKAGES[@]}" "${HYPRLAND_PACKAGES[@]}")
 
 # Add extra packages for this profile
 BASE_PACKAGES+=("${PROFILE_PACKAGES[@]}")
@@ -286,11 +263,10 @@ if [ '$INSTALL_SERIAL' = '1' ]; then
 fi
 
 # Desktop-specific services
-if [ '$DESKTOP' = 'hyprland' ]; then
-    systemctl enable greetd
+systemctl enable greetd
 
-    # Greetd config
-    cat > /etc/greetd/config.toml <<GREETD
+# Greetd config
+cat > /etc/greetd/config.toml <<GREETD
 [terminal]
 vt = 1
 
@@ -299,20 +275,14 @@ command = \"uwsm start hyprland.desktop\"
 user = \"$USERNAME\"
 GREETD
 
-    # Logind - let hypridle handle lid
-    mkdir -p /etc/systemd/logind.conf.d
-    cat > /etc/systemd/logind.conf.d/lid.conf <<LID
+# Logind - let hypridle handle lid
+mkdir -p /etc/systemd/logind.conf.d
+cat > /etc/systemd/logind.conf.d/lid.conf <<LID
 [Login]
 HandleLidSwitch=ignore
 HandleLidSwitchExternalPower=ignore
 HandleLidSwitchDocked=ignore
 LID
-
-elif [ '$DESKTOP' = 'gnome' ]; then
-    systemctl enable gdm
-elif [ '$DESKTOP' = 'kde' ]; then
-    systemctl enable sddm
-fi
 
 # Laptop services
 if [ '$IS_LAPTOP' = true ]; then
@@ -346,11 +316,7 @@ AUR_PACKAGES="localsend-bin"
 if [ "${UNATTENDED:-0}" != "1" ]; then
     AUR_PACKAGES="$AUR_PACKAGES librewolf-bin"
 fi
-if [ "$DESKTOP" = "hyprland" ]; then
-    AUR_PACKAGES="$AUR_PACKAGES grimblast-git waypaper wvkbd rofi-power-menu catppuccin-gtk-theme-mocha sunwait"
-elif [ "$DESKTOP" = "gnome" ]; then
-    AUR_PACKAGES="$AUR_PACKAGES gnome-extensions-cli"
-fi
+AUR_PACKAGES="$AUR_PACKAGES grimblast-git waypaper wvkbd rofi-power-menu catppuccin-gtk-theme-mocha sunwait"
 
 arch-chroot /mnt su - "$USERNAME" -c "
 cd /tmp
@@ -374,8 +340,7 @@ info "Setting up dotfiles with chezmoi..."
 # Write chezmoi config for this machine
 mkdir -p "/mnt/home/$USERNAME/.config/chezmoi"
 
-if [ "$DESKTOP" = "hyprland" ]; then
-    cat > "/mnt/home/$USERNAME/.config/chezmoi/chezmoi.toml" <<CHEZCONF
+cat > "/mnt/home/$USERNAME/.config/chezmoi/chezmoi.toml" <<CHEZCONF
 [data]
     desktop = "hyprland"
     hostname = "$HOSTNAME"
@@ -388,25 +353,6 @@ if [ "$DESKTOP" = "hyprland" ]; then
     border_size = $BORDER
     gpu = "$GPU"
 CHEZCONF
-elif [ "$DESKTOP" = "gnome" ]; then
-    cat > "/mnt/home/$USERNAME/.config/chezmoi/chezmoi.toml" <<CHEZCONF
-[data]
-    desktop = "gnome"
-    hostname = "$HOSTNAME"
-    is_laptop = $IS_LAPTOP
-    is_vm = $IS_VM
-    gpu = "$GPU"
-CHEZCONF
-elif [ "$DESKTOP" = "kde" ]; then
-    cat > "/mnt/home/$USERNAME/.config/chezmoi/chezmoi.toml" <<CHEZCONF
-[data]
-    desktop = "kde"
-    hostname = "$HOSTNAME"
-    is_laptop = $IS_LAPTOP
-    is_vm = $IS_VM
-    gpu = "$GPU"
-CHEZCONF
-fi
 
 # Clone or copy dotfiles and apply (clone manually to avoid TTY prompt from chezmoi init)
 mkdir -p "/mnt/home/$USERNAME/.local/share"
@@ -424,17 +370,15 @@ arch-chroot /mnt su - "$USERNAME" -c "chezmoi apply"
 chown -R 1000:1000 "/mnt/home/$USERNAME"
 
 # --- Desktop-specific post-install ---
-if [ "$DESKTOP" = "hyprland" ]; then
-    mkdir -p "/mnt/home/$USERNAME/Pictures/Wallpapers"
-    mkdir -p "/mnt/home/$USERNAME/.config/hyprsunset"
-    echo "3500" > "/mnt/home/$USERNAME/.config/hyprsunset/temperature"
-    echo "auto" > "/mnt/home/$USERNAME/.config/hyprsunset/mode"
-    chown -R 1000:1000 "/mnt/home/$USERNAME/Pictures"
-    chown -R 1000:1000 "/mnt/home/$USERNAME/.config/hyprsunset"
-    info "Syncing wallpapers..."
-    arch-chroot /mnt su - "$USERNAME" -c "~/.local/bin/wallpaper-sync" || \
-        warn "Wallpaper sync failed; the user timer will retry after reboot"
-fi
+mkdir -p "/mnt/home/$USERNAME/Pictures/Wallpapers"
+mkdir -p "/mnt/home/$USERNAME/.config/hyprsunset"
+echo "3500" > "/mnt/home/$USERNAME/.config/hyprsunset/temperature"
+echo "auto" > "/mnt/home/$USERNAME/.config/hyprsunset/mode"
+chown -R 1000:1000 "/mnt/home/$USERNAME/Pictures"
+chown -R 1000:1000 "/mnt/home/$USERNAME/.config/hyprsunset"
+info "Syncing wallpapers..."
+arch-chroot /mnt su - "$USERNAME" -c "~/.local/bin/wallpaper-sync" || \
+    warn "Wallpaper sync failed; the user timer will retry after reboot"
 
 # --- Done ---
 info ""
@@ -444,9 +388,7 @@ info "============================================"
 info ""
 info "After reboot:"
 info "  1. Connect to wifi: nmtui"
-if [ "$DESKTOP" = "hyprland" ]; then
-    info "  2. Wallpapers sync automatically to ~/Pictures/Wallpapers/catppuccin"
-fi
+info "  2. Wallpapers sync automatically to ~/Pictures/Wallpapers/catppuccin"
 info "  3. Authenticate GitHub CLI: gh auth login"
 info ""
 info "Unmounting and ready to reboot."

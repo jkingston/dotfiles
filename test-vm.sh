@@ -3,12 +3,10 @@ set -euo pipefail
 
 # Automated QEMU VM test for the Arch Linux installer
 # Prerequisites: brew install qemu expect
-# Usage: ./test-vm.sh <profile> <desktop> [--keep-disk]
+# Usage: ./test-vm.sh <profile> [--keep-disk]
 #
 # Example:
-#   ./test-vm.sh framework12 gnome
-#   ./test-vm.sh framework12 kde
-#   ./test-vm.sh framework12 hyprland --keep-disk
+#   ./test-vm.sh framework12 --keep-disk
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -20,14 +18,19 @@ warn() { echo -e "${YELLOW}[TEST]${NC} $*"; }
 fail() { echo -e "${RED}[FAIL]${NC} $*"; }
 
 PROFILE="${1:-}"
-DESKTOP="${2:-hyprland}"
+DESKTOP="hyprland"
 KEEP_DISK=false
-[[ "${3:-}" == "--keep-disk" ]] && KEEP_DISK=true
+[[ "${2:-}" == "--keep-disk" ]] && KEEP_DISK=true
 
 if [ -z "$PROFILE" ]; then
-    echo "Usage: $0 <profile> [desktop] [--keep-disk]"
+    echo "Usage: $0 <profile> [--keep-disk]"
     echo "  profile: framework12, minipc"
-    echo "  desktop: hyprland (default), gnome, kde"
+    exit 1
+fi
+
+if [ $# -gt 2 ] || { [ $# -eq 2 ] && [ "${2:-}" != "--keep-disk" ]; }; then
+    echo "Desktop selection has been removed; only hyprland is supported"
+    echo "Usage: $0 <profile> [--keep-disk]"
     exit 1
 fi
 
@@ -185,7 +188,7 @@ sleep 1
 # Run the installer in unattended mode
 send "export UNATTENDED=1 PASSWORD=$password INSTALL_DISK=/dev/vda INSTALL_SERIAL=1 DOTFILES_SOURCE=/dotfiles; echo ENV_OK\r"
 expect_marker {ENV_OK} "installer environment"
-send "/dotfiles/install.sh $profile $desktop\r"
+send "/dotfiles/install.sh $profile\r"
 
 # Wait for installation to complete (can take 10+ minutes)
 set timeout 1800
@@ -299,20 +302,7 @@ check "NetworkManager active" "systemctl is-active NetworkManager"
 check "bluetooth enabled" "systemctl is-enabled bluetooth"
 
 # Desktop-specific checks
-if { $desktop eq "gnome" } {
-    check "gdm enabled" "systemctl is-enabled gdm"
-    check "gnome-shell installed" "pacman -Q gnome-shell"
-    check "gnome-tweaks installed" "pacman -Q gnome-tweaks"
-    check "dconf config exists" "test -f ~/.config/dconf/user.conf"
-} elseif { $desktop eq "kde" } {
-    check "sddm enabled" "systemctl is-enabled sddm"
-    check "plasma installed" "pacman -Q plasma-meta"
-    check "dolphin installed" "pacman -Q dolphin"
-    check "okular installed" "pacman -Q okular"
-    check "kate installed" "pacman -Q kate"
-    check "kde portal installed" "pacman -Q xdg-desktop-portal-kde"
-    check "kde meta shortcut configured" "grep -F 'Meta=org.kde.plasmashell,/PlasmaShell,org.kde.PlasmaShell,activateLauncherMenu' ~/.config/kwinrc"
-} elseif { $desktop eq "hyprland" } {
+if { $desktop eq "hyprland" } {
     check "greetd enabled" "systemctl is-enabled greetd"
     check "greetd starts arch hyprland desktop entry" "grep -F 'command = \"uwsm start hyprland.desktop\"' /etc/greetd/config.toml"
     check "hyprland installed" "pacman -Q hyprland"
