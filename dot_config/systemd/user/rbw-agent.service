@@ -1,0 +1,13 @@
+[Unit]
+Description=rbw Bitwarden agent
+Documentation=https://github.com/doy/rbw
+ConditionPathExists=%h/.config/rbw/config.json
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/rbw-agent --no-daemonize
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=default.target

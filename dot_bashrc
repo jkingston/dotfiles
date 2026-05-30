@@ -6,6 +6,7 @@ HISTFILESIZE=32768
 # Environment
 export EDITOR="nvim"
 export ELECTRON_OZONE_PLATFORM_HINT=auto
+export SSH_AUTH_SOCK="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/rbw/ssh-agent-socket"
 export STARSHIP_CONFIG="$HOME/.config/starship/starship.toml"
 export PATH="$HOME/.local/bin:$PATH"
 

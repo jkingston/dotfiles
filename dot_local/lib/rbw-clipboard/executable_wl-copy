@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "${1:-}" = "--clear" ] || [ "${1:-}" = "-c" ]; then
+  exec "${WL_COPY_BIN:-/usr/bin/wl-copy}" "$@"
+fi
+
+secret="$(cat)"
+printf '%s' "$secret" | "${WL_COPY_BIN:-/usr/bin/wl-copy}" --sensitive "$@"
+
+clear_after="${RBW_CLIPBOARD_CLEAR_AFTER:-45}"
+case "$clear_after" in
+  ''|*[!0-9]*)
+    exit 0
+    ;;
+esac
+
+if [ "$clear_after" -gt 0 ]; then
+  (
+    sleep "$clear_after"
+    if [ "$("${WL_PASTE_BIN:-wl-paste}" 2>/dev/null || true)" = "$secret" ]; then
+      "${WL_COPY_BIN:-/usr/bin/wl-copy}" --clear
+    fi
+  ) >/dev/null 2>&1 &
+fi

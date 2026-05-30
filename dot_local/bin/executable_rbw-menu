@@ -1,0 +1,171 @@
+#!/usr/bin/env bash
+set -u
+
+notify() {
+  notify-send -t 3000 "rbw" "$1" 2>/dev/null || true
+}
+
+choose() {
+  printf '%s\n' "$@" | rofi -dmenu -i -p "Vault"
+}
+
+prompt_value() {
+  local prompt="$1"
+  rofi -dmenu -p "$prompt"
+}
+
+run_terminal() {
+  uwsm app -- ghostty --class=com.floating.tui -e bash -lc "$1"
+}
+
+is_configured() {
+  [ -s "$HOME/.config/rbw/config.json" ]
+}
+
+is_unlocked() {
+  rbw unlocked >/dev/null 2>&1
+}
+
+ensure_agent() {
+  systemctl --user start rbw-agent.service >/dev/null 2>&1 || true
+}
+
+set_email() {
+  local email
+  email="$(prompt_value "Bitwarden email")" || return 0
+  [ -n "$email" ] || return 0
+
+  if rbw config set email "$email" &&
+    rbw config set pinentry pinentry-gnome3 &&
+    rbw config set lock_timeout 3600 &&
+    rbw config set sync_interval 3600; then
+    systemctl --user enable --now rbw-agent.service >/dev/null 2>&1 || true
+    notify "Configured rbw for $email"
+  else
+    notify "Failed to configure rbw"
+  fi
+}
+
+set_numeric_config() {
+  local key="$1"
+  local prompt="$2"
+  local value
+  value="$(prompt_value "$prompt")" || return 0
+  case "$value" in
+    ''|*[!0-9]*)
+      notify "Invalid value"
+      return 1
+      ;;
+  esac
+  if rbw config set "$key" "$value"; then
+    notify "Set $key to $value"
+  else
+    notify "Failed to set $key"
+  fi
+}
+
+run_rbw_action() {
+  local label="$1"
+  local command="$2"
+
+  if bash -lc "$command"; then
+    notify "$label complete"
+  else
+    notify "$label failed"
+  fi
+}
+
+open_credentials() {
+  if ! is_configured; then
+    notify "Set your rbw email first"
+    return 0
+  fi
+
+  export RBW_CLIPBOARD_CLEAR_AFTER=45
+  PATH="$HOME/.local/lib/rbw-clipboard:$PATH" rofi-rbw \
+    --selector rofi \
+    --clipboarder wl-copy \
+    --action copy \
+    --target menu \
+    --prompt "Vault" \
+    --selector-args "-i" \
+    --clear-after 45
+}
+
+show_status() {
+  local config_state="missing"
+  local lock_state="locked"
+  local email="unset"
+
+  if is_configured; then
+    config_state="configured"
+    email="$(rbw config show 2>/dev/null | jq -r '.email // "unset"' 2>/dev/null)"
+    [ -n "$email" ] || email="unset"
+  fi
+  if is_unlocked; then
+    lock_state="unlocked"
+  fi
+
+  notify "config: $config_state | vault: $lock_state | email: $email"
+}
+
+if is_configured; then
+  ensure_agent
+fi
+
+if is_unlocked; then
+  choice="$(choose \
+    "Credentials" \
+    "Sync vault" \
+    "Lock vault" \
+    "Set email" \
+    "Register device" \
+    "Set lock timeout" \
+    "Set sync interval" \
+    "Stop agent" \
+    "Status")" || exit 0
+else
+  choice="$(choose \
+    "Set email" \
+    "Register device" \
+    "Login" \
+    "Unlock vault" \
+    "Sync vault" \
+    "Status")" || exit 0
+fi
+
+case "$choice" in
+  "Credentials")
+    open_credentials
+    ;;
+  "Set email")
+    set_email
+    ;;
+  "Register device")
+    run_terminal "rbw register; printf '\\nPress Enter to close...'; read -r"
+    ;;
+  "Login")
+    run_terminal "rbw login; printf '\\nPress Enter to close...'; read -r"
+    ;;
+  "Unlock vault")
+    run_rbw_action "Unlock" "rbw unlock"
+    ;;
+  "Sync vault")
+    run_rbw_action "Sync" "rbw sync"
+    ;;
+  "Lock vault")
+    run_rbw_action "Lock" "rbw lock"
+    ;;
+  "Set lock timeout")
+    set_numeric_config lock_timeout "Lock timeout seconds"
+    ;;
+  "Set sync interval")
+    set_numeric_config sync_interval "Sync interval seconds"
+    ;;
+  "Stop agent")
+    run_rbw_action "Stop agent" "rbw stop-agent"
+    ;;
+  "Status")
+    show_status
+    ;;
+esac

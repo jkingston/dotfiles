@@ -284,6 +284,32 @@ esac
 input="$(cat)"
 printf "wl-copy %s\n%s\n" "$*" "$input" >> "$FAKE_LOG"
 '
+  make_fake_bin wl-paste '#!/usr/bin/env bash
+printf "%s" "${FAKE_WL_PASTE:-}"
+'
+  make_fake_bin rbw '#!/usr/bin/env bash
+printf "rbw %s\n" "$*" >> "$FAKE_LOG"
+case "${1:-} ${2:-}" in
+  "unlocked ")
+    [ "${FAKE_RBW_UNLOCKED:-0}" = "1" ]
+    ;;
+  "config show")
+    printf "%s\n" "{\"email\":\"${FAKE_RBW_EMAIL:-user@example.com}\"}"
+    ;;
+  "config set")
+    if [ "${3:-}" = "email" ]; then
+      mkdir -p "$HOME/.config/rbw"
+      printf "{}\n" > "$HOME/.config/rbw/config.json"
+    fi
+    ;;
+esac
+'
+  make_fake_bin rofi-rbw '#!/usr/bin/env bash
+printf "rofi-rbw %s\n" "$*" >> "$FAKE_LOG"
+'
+  make_fake_bin uwsm '#!/usr/bin/env bash
+printf "uwsm %s\n" "$*" >> "$FAKE_LOG"
+'
   make_fake_bin pidof '#!/usr/bin/env bash
 printf "pidof %s\n" "$*" >> "$FAKE_LOG"
 if [ "${FAKE_PIDOF_MATCH:-}" = "${*: -1}" ]; then
@@ -305,7 +331,7 @@ printf "loginctl %s\n" "$*" >> "$FAKE_LOG"
   export HOME="$TEST_HOME"
   export PATH="$FAKE_BIN:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin"
   export FAKE_LOG ROFI_QUEUE
-  unset FAKE_PKILL_FAIL_WAYBAR FAKE_PGREP_MATCH FAKE_PIDOF_MATCH FAKE_SUNWAIT_POLL FAKE_SUNWAIT_REPORT FAKE_TIME_DATE_CTL_FAIL FAKE_TIMEZONE FAKE_CHECKUPDATES FAKE_YAY_UPDATES
+  unset FAKE_PKILL_FAIL_WAYBAR FAKE_PGREP_MATCH FAKE_PIDOF_MATCH FAKE_SUNWAIT_POLL FAKE_SUNWAIT_REPORT FAKE_TIME_DATE_CTL_FAIL FAKE_TIMEZONE FAKE_CHECKUPDATES FAKE_YAY_UPDATES FAKE_RBW_UNLOCKED FAKE_RBW_EMAIL FAKE_WL_PASTE
 }
 
 reset_case() {
@@ -726,6 +752,54 @@ test_rofi_clipboard_decodes_to_wl_copy() {
     assert_log_contains "clip-entry"
 }
 
+test_rbw_menu_locked_shows_setup_actions() {
+  printf '__ESC__\n' > "$ROFI_QUEUE"
+  run_script dot_local/bin/executable_rbw-menu &&
+    assert_log_contains "rofi -dmenu -i -p Vault" &&
+    assert_log_contains "Set email" &&
+    assert_log_contains "Unlock vault" &&
+    assert_log_not_contains "Credentials"
+}
+
+test_rbw_menu_unlocked_shows_credentials_and_config() {
+  mkdir -p "$HOME/.config/rbw"
+  printf '{}\n' > "$HOME/.config/rbw/config.json"
+  export FAKE_RBW_UNLOCKED=1
+  printf '__ESC__\n' > "$ROFI_QUEUE"
+  run_script dot_local/bin/executable_rbw-menu &&
+    assert_log_contains "systemctl --user start rbw-agent.service" &&
+    assert_log_contains "Credentials" &&
+    assert_log_contains "Set email" &&
+    assert_log_contains "Lock vault"
+}
+
+test_rbw_menu_credentials_launches_rofi_rbw() {
+  mkdir -p "$HOME/.config/rbw"
+  printf '{}\n' > "$HOME/.config/rbw/config.json"
+  export FAKE_RBW_UNLOCKED=1
+  printf 'Credentials\n' > "$ROFI_QUEUE"
+  run_script dot_local/bin/executable_rbw-menu &&
+    assert_log_contains "rofi-rbw --selector rofi --clipboarder wl-copy --action copy --target menu --prompt Vault --selector-args -i --clear-after 45"
+}
+
+test_rbw_menu_set_email_configures_defaults() {
+  printf 'Set email\nuser@example.com\n' > "$ROFI_QUEUE"
+  run_script dot_local/bin/executable_rbw-menu &&
+    assert_log_contains "rbw config set email user@example.com" &&
+    assert_log_contains "rbw config set pinentry pinentry-gnome3" &&
+    assert_log_contains "rbw config set lock_timeout 3600" &&
+    assert_log_contains "rbw config set sync_interval 3600" &&
+    assert_log_contains "systemctl --user enable --now rbw-agent.service"
+}
+
+test_rbw_clipboard_wrapper_marks_sensitive() {
+  export WL_COPY_BIN="$FAKE_BIN/wl-copy"
+  export RBW_CLIPBOARD_CLEAR_AFTER=0
+  printf 'secret-value' | bash "$ROOT_DIR/dot_local/lib/rbw-clipboard/executable_wl-copy" &&
+    assert_log_contains "wl-copy --sensitive" &&
+    assert_log_contains "secret-value"
+}
+
 test_keybind_help_uses_hyprctl_and_rofi() {
   printf '__ESC__\n' > "$ROFI_QUEUE"
   run_script_capture dot_local/bin/executable_keybind-help
@@ -796,6 +870,7 @@ test_hyprland_autostart_contract() {
   assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "exec-once = uwsm app -- waybar" &&
     assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "exec-once = uwsm app -- mako" &&
     assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "exec-once = uwsm app -- swayosd-server" &&
+    assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "rbw-agent.service" &&
     assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "exec-once = wl-paste --watch cliphist store" &&
     assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "exec-once = hypridle" &&
     assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "wallpaper-rotate.timer" &&
@@ -807,6 +882,7 @@ test_hyprland_keybind_contract() {
   assert_repo_contains dot_config/hypr/hyprland.conf.tmpl 'bind = $mod, SPACE, exec, uwsm app -- rofi -show drun' &&
     assert_repo_contains dot_config/hypr/hyprland.conf.tmpl 'bind = $mod_shift, B, exec, uwsm app -- flatpak run app.zen_browser.zen' &&
     assert_repo_contains dot_config/hypr/hyprland.conf.tmpl 'bind = $mod_ctrl, S, exec, uwsm app -- flatpak run org.localsend.localsend_app' &&
+    assert_repo_contains dot_config/hypr/hyprland.conf.tmpl 'bind = $mod_shift, P, exec, uwsm app -- ~/.local/bin/rbw-menu' &&
     assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "bind = , Print, exec, grimblast edit area" &&
     assert_repo_contains dot_config/hypr/hyprland.conf.tmpl 'bind = $mod_ctrl, V, exec, ~/.local/bin/rofi-clipboard' &&
     assert_repo_contains dot_config/hypr/hyprland.conf.tmpl 'bind = $mod_ctrl, I, exec, hyprlock' &&
@@ -873,6 +949,8 @@ test_chezmoi_platform_contract() {
     assert_repo_contains .chezmoi.toml.tmpl 'desktop = "none"' &&
     assert_repo_contains .chezmoiignore.tmpl '{{ if ne .chezmoi.os "linux" }}' &&
     assert_repo_contains .chezmoiignore.tmpl 'dot_config/hypr/**' &&
+    assert_repo_contains .chezmoiignore.tmpl 'dot_config/environment.d/**' &&
+    assert_repo_contains .chezmoiignore.tmpl 'dot_local/bin/executable_rbw-menu' &&
     ! grep -F 'gnome' "$ROOT_DIR/.chezmoi.toml.tmpl" >/dev/null 2>&1 &&
     ! grep -F 'kde' "$ROOT_DIR/.chezmoi.toml.tmpl" >/dev/null 2>&1
 }
@@ -895,6 +973,17 @@ test_flatpak_package_contract() {
     assert_repo_contains install.sh 'org.localsend.localsend_app' &&
     assert_repo_contains DESKTOPS.md 'org.localsend.localsend_app' &&
     ! grep -F 'com.bitwarden.desktop' "$ROOT_DIR/install.sh" >/dev/null 2>&1
+}
+
+test_rbw_package_contract() {
+  assert_repo_contains install.sh 'openssh rbw rofi-rbw' &&
+    assert_repo_contains DESKTOPS.md 'pacman -Q openssh rbw rofi-rbw' &&
+    assert_repo_contains dot_bashrc 'SSH_AUTH_SOCK="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/rbw/ssh-agent-socket"' &&
+    assert_repo_contains dot_config/environment.d/rbw-ssh-agent.conf 'SSH_AUTH_SOCK=${XDG_RUNTIME_DIR}/rbw/ssh-agent-socket' &&
+    assert_repo_contains dot_config/systemd/user/rbw-agent.service 'ExecStart=/usr/bin/rbw-agent --no-daemonize' &&
+    assert_repo_contains dot_config/systemd/user/rbw-agent.service 'ConditionPathExists=%h/.config/rbw/config.json' &&
+    assert_repo_contains dot_local/bin/executable_rbw-menu 'rofi-rbw' &&
+    assert_repo_contains dot_local/lib/rbw-clipboard/executable_wl-copy '--sensitive'
 }
 
 run_unit_tests() {
@@ -929,6 +1018,7 @@ run_unit_tests() {
   run_case "chezmoi: linux hyprland and mac shared config contract" test_chezmoi_platform_contract
   run_case "chezmoi: idiomatic workflow and installer contract" test_chezmoi_workflow_contract
   run_case "flatpak: package install contract" test_flatpak_package_contract
+  run_case "rbw: package and config contract" test_rbw_package_contract
 }
 
 run_gui_tests() {
@@ -962,6 +1052,11 @@ run_hyprland_environment_tests() {
   run_case "wallpaper: random image applies via awww" test_wallpaper_random_applies_image
   run_case "wallpaper: checkout runs after chezmoi apply" test_wallpaper_checkout_runs_after_chezmoi_apply
   run_case "clipboard: rofi selection is decoded to wl-copy" test_rofi_clipboard_decodes_to_wl_copy
+  run_case "rbw menu: locked state shows setup actions" test_rbw_menu_locked_shows_setup_actions
+  run_case "rbw menu: unlocked state shows credentials and config" test_rbw_menu_unlocked_shows_credentials_and_config
+  run_case "rbw menu: credentials launches rofi-rbw" test_rbw_menu_credentials_launches_rofi_rbw
+  run_case "rbw menu: set email configures defaults" test_rbw_menu_set_email_configures_defaults
+  run_case "rbw clipboard: marks copied secrets sensitive" test_rbw_clipboard_wrapper_marks_sensitive
   run_case "keybind help: reads Hyprland binds and opens rofi" test_keybind_help_uses_hyprctl_and_rofi
   run_case "power menu: lock runs hyprlock" test_power_menu_lock_runs_hyprlock
   run_case "power menu: lock is no-op when already locked" test_power_menu_lock_is_noop_when_already_locked
