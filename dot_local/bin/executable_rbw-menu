@@ -7,6 +7,10 @@ notify() {
 
 require_command() {
   local command="$1"
+  if [ "${RBW_MENU_FORCE_MISSING:-}" = "$command" ]; then
+    notify "Missing $command; install rbw and rofi-rbw"
+    return 1
+  fi
   if command -v "$command" >/dev/null 2>&1; then
     return 0
   fi
@@ -73,7 +77,7 @@ set_email() {
   [ -n "$email" ] || return 0
 
   if rbw config set email "$email" &&
-    rbw config set pinentry pinentry-gnome3 &&
+    rbw config set pinentry "$HOME/.local/bin/rbw-pinentry" &&
     rbw config set lock_timeout 3600 &&
     rbw config set sync_interval 3600; then
     systemctl --user enable --now rbw-agent.service >/dev/null 2>&1 || true

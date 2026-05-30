@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+export GDK_BACKEND="${GDK_BACKEND:-wayland,x11}"
+export GDK_SCALE="${PINENTRY_GDK_SCALE:-2}"
+
+exec /usr/bin/pinentry-gtk "$@"

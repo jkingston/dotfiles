@@ -331,7 +331,7 @@ printf "loginctl %s\n" "$*" >> "$FAKE_LOG"
   export HOME="$TEST_HOME"
   export PATH="$FAKE_BIN:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin"
   export FAKE_LOG ROFI_QUEUE
-  unset FAKE_PKILL_FAIL_WAYBAR FAKE_PGREP_MATCH FAKE_PIDOF_MATCH FAKE_SUNWAIT_POLL FAKE_SUNWAIT_REPORT FAKE_TIME_DATE_CTL_FAIL FAKE_TIMEZONE FAKE_CHECKUPDATES FAKE_YAY_UPDATES FAKE_RBW_UNLOCKED FAKE_RBW_EMAIL FAKE_RBW_BASE_URL_JSON FAKE_WL_PASTE
+  unset FAKE_PKILL_FAIL_WAYBAR FAKE_PGREP_MATCH FAKE_PIDOF_MATCH FAKE_SUNWAIT_POLL FAKE_SUNWAIT_REPORT FAKE_TIME_DATE_CTL_FAIL FAKE_TIMEZONE FAKE_CHECKUPDATES FAKE_YAY_UPDATES FAKE_RBW_UNLOCKED FAKE_RBW_EMAIL FAKE_RBW_BASE_URL_JSON FAKE_WL_PASTE RBW_MENU_FORCE_MISSING
 }
 
 reset_case() {
@@ -788,14 +788,14 @@ test_rbw_menu_set_email_configures_defaults() {
   printf 'Set email (current: unset)\nuser@example.com\n' > "$ROFI_QUEUE"
   run_script dot_local/bin/executable_rbw-menu &&
     assert_log_contains "rbw config set email user@example.com" &&
-    assert_log_contains "rbw config set pinentry pinentry-gnome3" &&
+    assert_log_contains "rbw config set pinentry $HOME/.local/bin/rbw-pinentry" &&
     assert_log_contains "rbw config set lock_timeout 3600" &&
     assert_log_contains "rbw config set sync_interval 3600" &&
     assert_log_contains "systemctl --user enable --now rbw-agent.service"
 }
 
 test_rbw_menu_reports_missing_rbw_on_config_action() {
-  rm -f "$FAKE_BIN/rbw"
+  export RBW_MENU_FORCE_MISSING=rbw
   printf 'Set email (current: unset)\nuser@example.com\n' > "$ROFI_QUEUE"
   run_script dot_local/bin/executable_rbw-menu &&
     assert_log_contains "notify-send -t 3000 rbw Missing rbw; install rbw and rofi-rbw" &&
@@ -981,6 +981,7 @@ test_chezmoi_platform_contract() {
     assert_repo_contains .chezmoiignore.tmpl 'dot_config/hypr/**' &&
     assert_repo_contains .chezmoiignore.tmpl 'dot_config/environment.d/**' &&
     assert_repo_contains .chezmoiignore.tmpl 'dot_local/bin/executable_rbw-menu' &&
+    assert_repo_contains .chezmoiignore.tmpl 'dot_local/bin/executable_rbw-pinentry' &&
     ! grep -F 'gnome' "$ROOT_DIR/.chezmoi.toml.tmpl" >/dev/null 2>&1 &&
     ! grep -F 'kde' "$ROOT_DIR/.chezmoi.toml.tmpl" >/dev/null 2>&1
 }
@@ -1013,6 +1014,8 @@ test_rbw_package_contract() {
     assert_repo_contains dot_config/systemd/user/rbw-agent.service 'ExecStart=/usr/bin/rbw-agent --no-daemonize' &&
     assert_repo_contains dot_config/systemd/user/rbw-agent.service 'ConditionPathExists=%h/.config/rbw/config.json' &&
     assert_repo_contains dot_local/bin/executable_rbw-menu 'rofi-rbw' &&
+    assert_repo_contains dot_local/bin/executable_rbw-menu 'rbw config set pinentry "$HOME/.local/bin/rbw-pinentry"' &&
+    assert_repo_contains dot_local/bin/executable_rbw-pinentry 'GDK_SCALE="${PINENTRY_GDK_SCALE:-2}"' &&
     assert_repo_contains dot_local/bin/executable_rbw-menu 'Missing $command; install rbw and rofi-rbw' &&
     assert_repo_contains dot_local/bin/executable_rbw-menu 'Set server (current: %s)' &&
     assert_repo_contains dot_local/bin/executable_rbw-menu 'rbw config set base_url "$url"' &&
