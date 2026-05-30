@@ -892,10 +892,9 @@ test_chezmoi_workflow_contract() {
 
 test_flatpak_package_contract() {
   assert_repo_contains install.sh 'app.zen_browser.zen' &&
-    assert_repo_contains install.sh 'com.bitwarden.desktop' &&
     assert_repo_contains install.sh 'org.localsend.localsend_app' &&
-    assert_repo_contains DESKTOPS.md 'com.bitwarden.desktop' &&
-    assert_repo_contains test-vm.sh 'Bitwarden Flatpak installed'
+    assert_repo_contains DESKTOPS.md 'org.localsend.localsend_app' &&
+    ! grep -F 'com.bitwarden.desktop' "$ROOT_DIR/install.sh" >/dev/null 2>&1
 }
 
 run_unit_tests() {
