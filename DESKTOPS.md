@@ -82,4 +82,5 @@ test -x ~/.local/bin/rbw-menu
 test -x ~/.local/lib/rbw-clipboard/wl-copy
 test -f ~/.config/systemd/user/rbw-agent.service
 grep -F SSH_AUTH_SOCK ~/.bashrc
+~/.local/bin/rbw-menu
 ```

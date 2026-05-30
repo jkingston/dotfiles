@@ -294,7 +294,7 @@ case "${1:-} ${2:-}" in
     [ "${FAKE_RBW_UNLOCKED:-0}" = "1" ]
     ;;
   "config show")
-    printf "%s\n" "{\"email\":\"${FAKE_RBW_EMAIL:-user@example.com}\"}"
+    printf "%s\n" "{\"email\":\"${FAKE_RBW_EMAIL:-user@example.com}\",\"base_url\":${FAKE_RBW_BASE_URL_JSON:-null}}"
     ;;
   "config set")
     if [ "${3:-}" = "email" ]; then
@@ -331,7 +331,7 @@ printf "loginctl %s\n" "$*" >> "$FAKE_LOG"
   export HOME="$TEST_HOME"
   export PATH="$FAKE_BIN:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin"
   export FAKE_LOG ROFI_QUEUE
-  unset FAKE_PKILL_FAIL_WAYBAR FAKE_PGREP_MATCH FAKE_PIDOF_MATCH FAKE_SUNWAIT_POLL FAKE_SUNWAIT_REPORT FAKE_TIME_DATE_CTL_FAIL FAKE_TIMEZONE FAKE_CHECKUPDATES FAKE_YAY_UPDATES FAKE_RBW_UNLOCKED FAKE_RBW_EMAIL FAKE_WL_PASTE
+  unset FAKE_PKILL_FAIL_WAYBAR FAKE_PGREP_MATCH FAKE_PIDOF_MATCH FAKE_SUNWAIT_POLL FAKE_SUNWAIT_REPORT FAKE_TIME_DATE_CTL_FAIL FAKE_TIMEZONE FAKE_CHECKUPDATES FAKE_YAY_UPDATES FAKE_RBW_UNLOCKED FAKE_RBW_EMAIL FAKE_RBW_BASE_URL_JSON FAKE_WL_PASTE
 }
 
 reset_case() {
@@ -756,7 +756,8 @@ test_rbw_menu_locked_shows_setup_actions() {
   printf '__ESC__\n' > "$ROFI_QUEUE"
   run_script dot_local/bin/executable_rbw-menu &&
     assert_log_contains "rofi -dmenu -i -p Vault" &&
-    assert_log_contains "Set email" &&
+    assert_log_contains "Set email (current: unset)" &&
+    assert_log_contains "Set server (current: official cloud)" &&
     assert_log_contains "Unlock vault" &&
     assert_log_not_contains "Credentials"
 }
@@ -769,7 +770,8 @@ test_rbw_menu_unlocked_shows_credentials_and_config() {
   run_script dot_local/bin/executable_rbw-menu &&
     assert_log_contains "systemctl --user start rbw-agent.service" &&
     assert_log_contains "Credentials" &&
-    assert_log_contains "Set email" &&
+    assert_log_contains "Set email (current: user@example.com)" &&
+    assert_log_contains "Set server (current: official cloud)" &&
     assert_log_contains "Lock vault"
 }
 
@@ -783,13 +785,33 @@ test_rbw_menu_credentials_launches_rofi_rbw() {
 }
 
 test_rbw_menu_set_email_configures_defaults() {
-  printf 'Set email\nuser@example.com\n' > "$ROFI_QUEUE"
+  printf 'Set email (current: unset)\nuser@example.com\n' > "$ROFI_QUEUE"
   run_script dot_local/bin/executable_rbw-menu &&
     assert_log_contains "rbw config set email user@example.com" &&
     assert_log_contains "rbw config set pinentry pinentry-gnome3" &&
     assert_log_contains "rbw config set lock_timeout 3600" &&
     assert_log_contains "rbw config set sync_interval 3600" &&
     assert_log_contains "systemctl --user enable --now rbw-agent.service"
+}
+
+test_rbw_menu_set_server_configures_base_url() {
+  printf 'Set server (current: official cloud)\nhttps://vault.example.com/\n' > "$ROFI_QUEUE"
+  run_script dot_local/bin/executable_rbw-menu &&
+    assert_log_contains "rbw config set base_url https://vault.example.com" &&
+    assert_log_contains "rbw stop-agent" &&
+    assert_log_contains "systemctl --user restart rbw-agent.service"
+}
+
+test_rbw_menu_reset_server_unsets_urls() {
+  export FAKE_RBW_BASE_URL_JSON='"https://vault.example.com"'
+  mkdir -p "$HOME/.config/rbw"
+  printf '{}\n' > "$HOME/.config/rbw/config.json"
+  printf 'Use official cloud\n' > "$ROFI_QUEUE"
+  run_script dot_local/bin/executable_rbw-menu &&
+    assert_log_contains "rbw config unset base_url" &&
+    assert_log_contains "rbw config unset identity_url" &&
+    assert_log_contains "rbw config unset ui_url" &&
+    assert_log_contains "rbw config unset notifications_url"
 }
 
 test_rbw_clipboard_wrapper_marks_sensitive() {
@@ -983,6 +1005,9 @@ test_rbw_package_contract() {
     assert_repo_contains dot_config/systemd/user/rbw-agent.service 'ExecStart=/usr/bin/rbw-agent --no-daemonize' &&
     assert_repo_contains dot_config/systemd/user/rbw-agent.service 'ConditionPathExists=%h/.config/rbw/config.json' &&
     assert_repo_contains dot_local/bin/executable_rbw-menu 'rofi-rbw' &&
+    assert_repo_contains dot_local/bin/executable_rbw-menu 'Set server (current: %s)' &&
+    assert_repo_contains dot_local/bin/executable_rbw-menu 'rbw config set base_url "$url"' &&
+    assert_repo_contains dot_local/bin/executable_rbw-menu 'rbw config unset base_url' &&
     assert_repo_contains dot_local/lib/rbw-clipboard/executable_wl-copy '--sensitive'
 }
 
@@ -1056,6 +1081,8 @@ run_hyprland_environment_tests() {
   run_case "rbw menu: unlocked state shows credentials and config" test_rbw_menu_unlocked_shows_credentials_and_config
   run_case "rbw menu: credentials launches rofi-rbw" test_rbw_menu_credentials_launches_rofi_rbw
   run_case "rbw menu: set email configures defaults" test_rbw_menu_set_email_configures_defaults
+  run_case "rbw menu: set server configures base url" test_rbw_menu_set_server_configures_base_url
+  run_case "rbw menu: reset server unsets urls" test_rbw_menu_reset_server_unsets_urls
   run_case "rbw clipboard: marks copied secrets sensitive" test_rbw_clipboard_wrapper_marks_sensitive
   run_case "keybind help: reads Hyprland binds and opens rofi" test_keybind_help_uses_hyprctl_and_rofi
   run_case "power menu: lock runs hyprlock" test_power_menu_lock_runs_hyprlock

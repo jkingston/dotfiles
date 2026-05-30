@@ -30,6 +30,28 @@ ensure_agent() {
   systemctl --user start rbw-agent.service >/dev/null 2>&1 || true
 }
 
+config_value() {
+  local key="$1"
+  if ! is_configured; then
+    printf 'unset'
+    return 0
+  fi
+  rbw config show 2>/dev/null | jq -r --arg key "$key" '.[$key] // "unset"' 2>/dev/null
+}
+
+email_label() {
+  printf 'Set email (current: %s)' "$(config_value email)"
+}
+
+server_label() {
+  local server
+  server="$(config_value base_url)"
+  if [ "$server" = "unset" ]; then
+    server="official cloud"
+  fi
+  printf 'Set server (current: %s)' "$server"
+}
+
 set_email() {
   local email
   email="$(prompt_value "Bitwarden email")" || return 0
@@ -43,6 +65,42 @@ set_email() {
     notify "Configured rbw for $email"
   else
     notify "Failed to configure rbw"
+  fi
+}
+
+set_server() {
+  local url
+  url="$(prompt_value "Server URL")" || return 0
+  url="${url%/}"
+  [ -n "$url" ] || return 0
+
+  case "$url" in
+    http://*|https://*) ;;
+    *)
+      notify "Server URL must start with http:// or https://"
+      return 1
+      ;;
+  esac
+
+  if rbw config set base_url "$url"; then
+    rbw stop-agent >/dev/null 2>&1 || true
+    systemctl --user restart rbw-agent.service >/dev/null 2>&1 || true
+    notify "Set server to $url"
+  else
+    notify "Failed to set server"
+  fi
+}
+
+reset_server() {
+  if rbw config unset base_url &&
+    rbw config unset identity_url &&
+    rbw config unset ui_url &&
+    rbw config unset notifications_url; then
+    rbw stop-agent >/dev/null 2>&1 || true
+    systemctl --user restart rbw-agent.service >/dev/null 2>&1 || true
+    notify "Using official Bitwarden cloud"
+  else
+    notify "Failed to reset server"
   fi
 }
 
@@ -118,7 +176,9 @@ if is_unlocked; then
     "Credentials" \
     "Sync vault" \
     "Lock vault" \
-    "Set email" \
+    "$(email_label)" \
+    "$(server_label)" \
+    "Use official cloud" \
     "Register device" \
     "Set lock timeout" \
     "Set sync interval" \
@@ -126,7 +186,9 @@ if is_unlocked; then
     "Status")" || exit 0
 else
   choice="$(choose \
-    "Set email" \
+    "$(email_label)" \
+    "$(server_label)" \
+    "Use official cloud" \
     "Register device" \
     "Login" \
     "Unlock vault" \
@@ -138,8 +200,14 @@ case "$choice" in
   "Credentials")
     open_credentials
     ;;
-  "Set email")
+  "Set email"*)
     set_email
+    ;;
+  "Set server"*)
+    set_server
+    ;;
+  "Use official cloud")
+    reset_server
     ;;
   "Register device")
     run_terminal "rbw register; printf '\\nPress Enter to close...'; read -r"
