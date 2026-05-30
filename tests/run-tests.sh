@@ -794,6 +794,14 @@ test_rbw_menu_set_email_configures_defaults() {
     assert_log_contains "systemctl --user enable --now rbw-agent.service"
 }
 
+test_rbw_menu_reports_missing_rbw_on_config_action() {
+  rm -f "$FAKE_BIN/rbw"
+  printf 'Set email (current: unset)\nuser@example.com\n' > "$ROFI_QUEUE"
+  run_script dot_local/bin/executable_rbw-menu &&
+    assert_log_contains "notify-send -t 3000 rbw Missing rbw; install rbw and rofi-rbw" &&
+    assert_log_not_contains "rbw config set email"
+}
+
 test_rbw_menu_set_server_configures_base_url() {
   printf 'Set server (current: official cloud)\nhttps://vault.example.com/\n' > "$ROFI_QUEUE"
   run_script dot_local/bin/executable_rbw-menu &&
@@ -1005,6 +1013,7 @@ test_rbw_package_contract() {
     assert_repo_contains dot_config/systemd/user/rbw-agent.service 'ExecStart=/usr/bin/rbw-agent --no-daemonize' &&
     assert_repo_contains dot_config/systemd/user/rbw-agent.service 'ConditionPathExists=%h/.config/rbw/config.json' &&
     assert_repo_contains dot_local/bin/executable_rbw-menu 'rofi-rbw' &&
+    assert_repo_contains dot_local/bin/executable_rbw-menu 'Missing $command; install rbw and rofi-rbw' &&
     assert_repo_contains dot_local/bin/executable_rbw-menu 'Set server (current: %s)' &&
     assert_repo_contains dot_local/bin/executable_rbw-menu 'rbw config set base_url "$url"' &&
     assert_repo_contains dot_local/bin/executable_rbw-menu 'rbw config unset base_url' &&
@@ -1081,6 +1090,7 @@ run_hyprland_environment_tests() {
   run_case "rbw menu: unlocked state shows credentials and config" test_rbw_menu_unlocked_shows_credentials_and_config
   run_case "rbw menu: credentials launches rofi-rbw" test_rbw_menu_credentials_launches_rofi_rbw
   run_case "rbw menu: set email configures defaults" test_rbw_menu_set_email_configures_defaults
+  run_case "rbw menu: reports missing rbw on config action" test_rbw_menu_reports_missing_rbw_on_config_action
   run_case "rbw menu: set server configures base url" test_rbw_menu_set_server_configures_base_url
   run_case "rbw menu: reset server unsets urls" test_rbw_menu_reset_server_unsets_urls
   run_case "rbw clipboard: marks copied secrets sensitive" test_rbw_clipboard_wrapper_marks_sensitive

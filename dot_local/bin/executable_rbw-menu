@@ -5,6 +5,15 @@ notify() {
   notify-send -t 3000 "rbw" "$1" 2>/dev/null || true
 }
 
+require_command() {
+  local command="$1"
+  if command -v "$command" >/dev/null 2>&1; then
+    return 0
+  fi
+  notify "Missing $command; install rbw and rofi-rbw"
+  return 1
+}
+
 choose() {
   printf '%s\n' "$@" | rofi -dmenu -i -p "Vault"
 }
@@ -23,6 +32,7 @@ is_configured() {
 }
 
 is_unlocked() {
+  command -v rbw >/dev/null 2>&1 || return 1
   rbw unlocked >/dev/null 2>&1
 }
 
@@ -36,6 +46,10 @@ config_value() {
     printf 'unset'
     return 0
   fi
+  require_command rbw >/dev/null || {
+    printf 'unavailable'
+    return 0
+  }
   rbw config show 2>/dev/null | jq -r --arg key "$key" '.[$key] // "unset"' 2>/dev/null
 }
 
@@ -53,6 +67,7 @@ server_label() {
 }
 
 set_email() {
+  require_command rbw || return 0
   local email
   email="$(prompt_value "Bitwarden email")" || return 0
   [ -n "$email" ] || return 0
@@ -69,6 +84,7 @@ set_email() {
 }
 
 set_server() {
+  require_command rbw || return 0
   local url
   url="$(prompt_value "Server URL")" || return 0
   url="${url%/}"
@@ -92,6 +108,7 @@ set_server() {
 }
 
 reset_server() {
+  require_command rbw || return 0
   if rbw config unset base_url &&
     rbw config unset identity_url &&
     rbw config unset ui_url &&
@@ -105,6 +122,7 @@ reset_server() {
 }
 
 set_numeric_config() {
+  require_command rbw || return 0
   local key="$1"
   local prompt="$2"
   local value
@@ -134,6 +152,8 @@ run_rbw_action() {
 }
 
 open_credentials() {
+  require_command rbw || return 0
+  require_command rofi-rbw || return 0
   if ! is_configured; then
     notify "Set your rbw email first"
     return 0
