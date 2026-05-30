@@ -307,6 +307,9 @@ esac
   make_fake_bin rofi-rbw '#!/usr/bin/env bash
 printf "rofi-rbw %s\n" "$*" >> "$FAKE_LOG"
 '
+  make_fake_bin wtype '#!/usr/bin/env bash
+printf "wtype %s\n" "$*" >> "$FAKE_LOG"
+'
   make_fake_bin uwsm '#!/usr/bin/env bash
 printf "uwsm %s\n" "$*" >> "$FAKE_LOG"
 '
@@ -758,8 +761,16 @@ test_rbw_menu_locked_shows_setup_actions() {
     assert_log_contains "rofi -dmenu -i -p Vault" &&
     assert_log_contains "Set email (current: unset)" &&
     assert_log_contains "Set server (current: official cloud)" &&
-    assert_log_contains "Unlock vault" &&
+    assert_log_contains "Login" &&
     assert_log_not_contains "Credentials"
+}
+
+test_rbw_menu_configured_locked_orders_common_actions_first() {
+  mkdir -p "$HOME/.config/rbw"
+  printf '{}\n' > "$HOME/.config/rbw/config.json"
+  printf '__ESC__\n' > "$ROFI_QUEUE"
+  run_script dot_local/bin/executable_rbw-menu &&
+    assert_log_contains $'rofi-stdin Unlock vault\nSync vault\nLogin\nStatus\nSet email'
 }
 
 test_rbw_menu_unlocked_shows_credentials_and_config() {
@@ -775,35 +786,45 @@ test_rbw_menu_unlocked_shows_credentials_and_config() {
     assert_log_contains "Lock vault"
 }
 
+test_rbw_menu_unlocked_orders_common_actions_first() {
+  mkdir -p "$HOME/.config/rbw"
+  printf '{}\n' > "$HOME/.config/rbw/config.json"
+  export FAKE_RBW_UNLOCKED=1
+  printf '__ESC__\n' > "$ROFI_QUEUE"
+  run_script dot_local/bin/executable_rbw-menu &&
+    assert_log_contains $'rofi-stdin Credentials\nSync vault\nLock vault\nStatus\nSet email'
+}
+
 test_rbw_menu_credentials_launches_rofi_rbw() {
   mkdir -p "$HOME/.config/rbw"
   printf '{}\n' > "$HOME/.config/rbw/config.json"
   export FAKE_RBW_UNLOCKED=1
   printf 'Credentials\n' > "$ROFI_QUEUE"
   run_script dot_local/bin/executable_rbw-menu &&
-    assert_log_contains "rofi-rbw --selector rofi --clipboarder wl-copy --action copy --target menu --prompt Vault --selector-args -i --clear-after 45"
+    assert_log_contains "rofi-rbw --selector rofi --clipboarder wl-copy --typer wtype --action copy --target menu --prompt Vault --selector-args=-i --clear-after 45"
 }
 
 test_rbw_menu_set_email_configures_defaults() {
-  printf 'Set email (current: unset)\nuser@example.com\n' > "$ROFI_QUEUE"
+  printf 'Set email (current: unset)\nuser@example.com\n__ESC__\n' > "$ROFI_QUEUE"
   run_script dot_local/bin/executable_rbw-menu &&
     assert_log_contains "rbw config set email user@example.com" &&
     assert_log_contains "rbw config set pinentry $HOME/.local/bin/rbw-pinentry" &&
     assert_log_contains "rbw config set lock_timeout 3600" &&
     assert_log_contains "rbw config set sync_interval 3600" &&
-    assert_log_contains "systemctl --user enable --now rbw-agent.service"
+    assert_log_contains "systemctl --user enable --now rbw-agent.service" &&
+    assert_log_contains $'rofi-stdin Unlock vault\nSync vault\nLogin\nStatus'
 }
 
 test_rbw_menu_reports_missing_rbw_on_config_action() {
   export RBW_MENU_FORCE_MISSING=rbw
-  printf 'Set email (current: unset)\nuser@example.com\n' > "$ROFI_QUEUE"
+  printf 'Set email (current: unset)\nuser@example.com\n__ESC__\n' > "$ROFI_QUEUE"
   run_script dot_local/bin/executable_rbw-menu &&
     assert_log_contains "notify-send -t 3000 rbw Missing rbw; install rbw and rofi-rbw" &&
     assert_log_not_contains "rbw config set email"
 }
 
 test_rbw_menu_set_server_configures_base_url() {
-  printf 'Set server (current: official cloud)\nhttps://vault.example.com/\n' > "$ROFI_QUEUE"
+  printf 'Set server (current: official cloud)\nhttps://vault.example.com/\n__ESC__\n' > "$ROFI_QUEUE"
   run_script dot_local/bin/executable_rbw-menu &&
     assert_log_contains "rbw config set base_url https://vault.example.com" &&
     assert_log_contains "rbw stop-agent" &&
@@ -814,7 +835,7 @@ test_rbw_menu_reset_server_unsets_urls() {
   export FAKE_RBW_BASE_URL_JSON='"https://vault.example.com"'
   mkdir -p "$HOME/.config/rbw"
   printf '{}\n' > "$HOME/.config/rbw/config.json"
-  printf 'Use official cloud\n' > "$ROFI_QUEUE"
+  printf 'Use official cloud\n__ESC__\n' > "$ROFI_QUEUE"
   run_script dot_local/bin/executable_rbw-menu &&
     assert_log_contains "rbw config unset base_url" &&
     assert_log_contains "rbw config unset identity_url" &&
@@ -1007,13 +1028,14 @@ test_flatpak_package_contract() {
 }
 
 test_rbw_package_contract() {
-  assert_repo_contains install.sh 'openssh rbw rofi-rbw' &&
-    assert_repo_contains DESKTOPS.md 'pacman -Q openssh rbw rofi-rbw' &&
+  assert_repo_contains install.sh 'openssh rbw rofi-rbw wtype' &&
+    assert_repo_contains DESKTOPS.md 'pacman -Q openssh rbw rofi-rbw wtype' &&
     assert_repo_contains dot_bashrc 'SSH_AUTH_SOCK="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/rbw/ssh-agent-socket"' &&
     assert_repo_contains dot_config/environment.d/rbw-ssh-agent.conf 'SSH_AUTH_SOCK=${XDG_RUNTIME_DIR}/rbw/ssh-agent-socket' &&
     assert_repo_contains dot_config/systemd/user/rbw-agent.service 'ExecStart=/usr/bin/rbw-agent --no-daemonize' &&
     assert_repo_contains dot_config/systemd/user/rbw-agent.service 'ConditionPathExists=%h/.config/rbw/config.json' &&
     assert_repo_contains dot_local/bin/executable_rbw-menu 'rofi-rbw' &&
+    assert_repo_contains dot_local/bin/executable_rbw-menu '--typer wtype' &&
     assert_repo_contains dot_local/bin/executable_rbw-menu 'rbw config set pinentry "$HOME/.local/bin/rbw-pinentry"' &&
     assert_repo_contains dot_local/bin/executable_rbw-pinentry 'GDK_SCALE="${PINENTRY_GDK_SCALE:-2}"' &&
     assert_repo_contains dot_local/bin/executable_rbw-menu 'Missing $command; install rbw and rofi-rbw' &&
@@ -1090,7 +1112,9 @@ run_hyprland_environment_tests() {
   run_case "wallpaper: checkout runs after chezmoi apply" test_wallpaper_checkout_runs_after_chezmoi_apply
   run_case "clipboard: rofi selection is decoded to wl-copy" test_rofi_clipboard_decodes_to_wl_copy
   run_case "rbw menu: locked state shows setup actions" test_rbw_menu_locked_shows_setup_actions
+  run_case "rbw menu: configured locked state orders common actions first" test_rbw_menu_configured_locked_orders_common_actions_first
   run_case "rbw menu: unlocked state shows credentials and config" test_rbw_menu_unlocked_shows_credentials_and_config
+  run_case "rbw menu: unlocked state orders common actions first" test_rbw_menu_unlocked_orders_common_actions_first
   run_case "rbw menu: credentials launches rofi-rbw" test_rbw_menu_credentials_launches_rofi_rbw
   run_case "rbw menu: set email configures defaults" test_rbw_menu_set_email_configures_defaults
   run_case "rbw menu: reports missing rbw on config action" test_rbw_menu_reports_missing_rbw_on_config_action

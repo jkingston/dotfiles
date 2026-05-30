@@ -158,6 +158,7 @@ run_rbw_action() {
 open_credentials() {
   require_command rbw || return 0
   require_command rofi-rbw || return 0
+  require_command wtype || return 0
   if ! is_configured; then
     notify "Set your rbw email first"
     return 0
@@ -167,10 +168,11 @@ open_credentials() {
   PATH="$HOME/.local/lib/rbw-clipboard:$PATH" rofi-rbw \
     --selector rofi \
     --clipboarder wl-copy \
+    --typer wtype \
     --action copy \
     --target menu \
     --prompt "Vault" \
-    --selector-args "-i" \
+    --selector-args=-i \
     --clear-after 45
 }
 
@@ -191,73 +193,83 @@ show_status() {
   notify "config: $config_state | vault: $lock_state | email: $email"
 }
 
-if is_configured; then
-  ensure_agent
-fi
+while true; do
+  if is_configured; then
+    ensure_agent
+  fi
 
-if is_unlocked; then
-  choice="$(choose \
-    "Credentials" \
-    "Sync vault" \
-    "Lock vault" \
-    "$(email_label)" \
-    "$(server_label)" \
-    "Use official cloud" \
-    "Register device" \
-    "Set lock timeout" \
-    "Set sync interval" \
-    "Stop agent" \
-    "Status")" || exit 0
-else
-  choice="$(choose \
-    "$(email_label)" \
-    "$(server_label)" \
-    "Use official cloud" \
-    "Register device" \
-    "Login" \
-    "Unlock vault" \
-    "Sync vault" \
-    "Status")" || exit 0
-fi
+  if is_unlocked; then
+    choice="$(choose \
+      "Credentials" \
+      "Sync vault" \
+      "Lock vault" \
+      "Status" \
+      "$(email_label)" \
+      "$(server_label)" \
+      "Use official cloud" \
+      "Register device" \
+      "Set lock timeout" \
+      "Set sync interval" \
+      "Stop agent")" || exit 0
+  elif is_configured; then
+    choice="$(choose \
+      "Unlock vault" \
+      "Sync vault" \
+      "Login" \
+      "Status" \
+      "$(email_label)" \
+      "$(server_label)" \
+      "Use official cloud" \
+      "Register device")" || exit 0
+  else
+    choice="$(choose \
+      "$(email_label)" \
+      "$(server_label)" \
+      "Use official cloud" \
+      "Register device" \
+      "Login" \
+      "Status")" || exit 0
+  fi
 
-case "$choice" in
-  "Credentials")
-    open_credentials
-    ;;
-  "Set email"*)
-    set_email
-    ;;
-  "Set server"*)
-    set_server
-    ;;
-  "Use official cloud")
-    reset_server
-    ;;
-  "Register device")
-    run_terminal "rbw register; printf '\\nPress Enter to close...'; read -r"
-    ;;
-  "Login")
-    run_terminal "rbw login; printf '\\nPress Enter to close...'; read -r"
-    ;;
-  "Unlock vault")
-    run_rbw_action "Unlock" "rbw unlock"
-    ;;
-  "Sync vault")
-    run_rbw_action "Sync" "rbw sync"
-    ;;
-  "Lock vault")
-    run_rbw_action "Lock" "rbw lock"
-    ;;
-  "Set lock timeout")
-    set_numeric_config lock_timeout "Lock timeout seconds"
-    ;;
-  "Set sync interval")
-    set_numeric_config sync_interval "Sync interval seconds"
-    ;;
-  "Stop agent")
-    run_rbw_action "Stop agent" "rbw stop-agent"
-    ;;
-  "Status")
-    show_status
-    ;;
-esac
+  case "$choice" in
+    "Credentials")
+      open_credentials
+      ;;
+    "Set email"*)
+      set_email
+      ;;
+    "Set server"*)
+      set_server
+      ;;
+    "Use official cloud")
+      reset_server
+      ;;
+    "Register device")
+      run_terminal "rbw register; printf '\\nPress Enter to close...'; read -r"
+      ;;
+    "Login")
+      run_terminal "rbw login; printf '\\nPress Enter to close...'; read -r"
+      ;;
+    "Unlock vault")
+      run_rbw_action "Unlock" "rbw unlock"
+      ;;
+    "Sync vault")
+      run_rbw_action "Sync" "rbw sync"
+      ;;
+    "Lock vault")
+      run_rbw_action "Lock" "rbw lock"
+      ;;
+    "Set lock timeout")
+      set_numeric_config lock_timeout "Lock timeout seconds"
+      ;;
+    "Set sync interval")
+      set_numeric_config sync_interval "Sync interval seconds"
+      ;;
+    "Stop agent")
+      run_rbw_action "Stop agent" "rbw stop-agent"
+      ;;
+    "Status")
+      show_status
+      ;;
+  esac
+done

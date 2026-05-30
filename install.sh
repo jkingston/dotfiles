@@ -154,7 +154,7 @@ COMMON_PACKAGES=(
     # Terminal & tools
     ghostty starship fzf zoxide bat eza
     btop ripgrep fd jq tree unzip ncdu duf procs tldr git-delta
-    github-cli direnv mise lazygit lazydocker openssh rbw rofi-rbw
+    github-cli direnv mise lazygit lazydocker openssh rbw rofi-rbw wtype
     # Fonts
     ttf-jetbrains-mono-nerd ttf-cascadia-code-nerd noto-fonts noto-fonts-emoji
     # Misc
