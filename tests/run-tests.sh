@@ -1077,6 +1077,13 @@ test_chezmoi_platform_contract() {
     ! grep -F 'kde' "$ROOT_DIR/.chezmoi.toml.tmpl" >/dev/null 2>&1
 }
 
+test_dark_mode_applied_on_session_start() {
+  assert_repo_contains dot_local/bin/executable_set-dark-mode 'gsettings set org.gnome.desktop.interface color-scheme prefer-dark' &&
+    assert_repo_contains dot_local/bin/executable_set-dark-mode 'systemctl --user try-restart xdg-desktop-portal.service xdg-desktop-portal-gtk.service' &&
+    assert_repo_contains run_onchange_after_set-dark-mode.sh.tmpl '"$HOME/.local/bin/set-dark-mode"' &&
+    assert_repo_contains dot_config/hypr/hyprland.conf.tmpl 'exec-once = ~/.local/bin/set-dark-mode'
+}
+
 test_chezmoi_workflow_contract() {
   assert_repo_contains AGENTS.md 'chezmoi source-path' &&
     assert_repo_contains AGENTS.md 'chezmoi diff' &&
@@ -1241,6 +1248,7 @@ run_unit_tests() {
   run_case "status: timedatectl fallback timezone" test_status_timedatectl_fallback
   run_case "neovim: mise-managed toolchain contract" test_neovim_toolchain_contract
   run_case "chezmoi: linux hyprland and mac shared config contract" test_chezmoi_platform_contract
+  run_case "chezmoi: dark mode applies on graphical session start" test_dark_mode_applied_on_session_start
   run_case "chezmoi: idiomatic workflow and installer contract" test_chezmoi_workflow_contract
   run_case "flatpak: package install contract" test_flatpak_package_contract
   run_case "rbw: package and config contract" test_rbw_package_contract

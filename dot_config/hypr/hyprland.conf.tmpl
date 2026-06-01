@@ -44,6 +44,7 @@ $mod_alt = SUPER_ALT
 
 # Autostart
 exec-once = xrdb -merge ~/.Xresources
+exec-once = ~/.local/bin/set-dark-mode
 exec-once = systemctl --user daemon-reload && systemctl --user enable --now hyprsunset-check.timer wallpaper-rotate.timer rbw-agent.service
 exec-once = systemctl --user start waybar.service
 exec-once = uwsm app -- mako
