@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+duration="${1:-120}"
+case "$duration" in
+  ''|*[!0-9]*)
+    echo "Usage: battery-power-report [seconds]" >&2
+    exit 2
+    ;;
+esac
+
+bat="${BATTERY_DEVICE:-}"
+if [ -z "$bat" ] && command -v upower >/dev/null 2>&1; then
+  bat="$(upower -e 2>/dev/null | grep -E '/battery_BAT[0-9]+$' | head -n1 || true)"
+fi
+
+read_battery() {
+  if [ -n "$bat" ] && command -v upower >/dev/null 2>&1; then
+    upower -i "$bat" | awk '
+      /percentage:/ { percentage=$2 }
+      /energy-rate:/ { rate=$2 " " $3 }
+      /time to empty:/ { empty=$4 " " $5 }
+      /state:/ { state=$2 }
+      END {
+        printf "state=%s percentage=%s energy-rate=%s time-to-empty=%s\n", state, percentage, rate, empty
+      }'
+    return
+  fi
+
+  for sysbat in /sys/class/power_supply/BAT*; do
+    [ -r "$sysbat/capacity" ] || continue
+    cap="$(cat "$sysbat/capacity")"
+    status="$(cat "$sysbat/status" 2>/dev/null || true)"
+    power=""
+    if [ -r "$sysbat/power_now" ]; then
+      microwatts="$(cat "$sysbat/power_now")"
+      power="$(awk -v mw="$microwatts" 'BEGIN { printf "%.2f W", mw / 1000000 }')"
+    elif [ -r "$sysbat/current_now" ] && [ -r "$sysbat/voltage_now" ]; then
+      current="$(cat "$sysbat/current_now")"
+      voltage="$(cat "$sysbat/voltage_now")"
+      power="$(awk -v ua="$current" -v uv="$voltage" 'BEGIN { printf "%.2f W", ua * uv / 1000000000000 }')"
+    fi
+    printf 'state=%s percentage=%s%% energy-rate=%s\n' "$status" "$cap" "$power"
+    return
+  done
+}
+
+echo "Battery sample start: $(date --iso-8601=seconds)"
+read_battery
+
+if [ "$duration" -gt 0 ]; then
+  sleep "$duration"
+fi
+
+echo
+echo "Battery sample end: $(date --iso-8601=seconds)"
+read_battery
+
+echo
+echo "Power profile:"
+if command -v tuned-adm >/dev/null 2>&1; then
+  tuned-adm active 2>/dev/null || true
+elif command -v powerprofilesctl >/dev/null 2>&1; then
+  powerprofilesctl get 2>/dev/null || true
+fi
+
+echo
+echo "Top CPU:"
+ps -eo pid,stat,pcpu,pmem,comm,args --sort=-pcpu | head -15
+
+echo
+echo "Radio state:"
+rfkill list 2>/dev/null || true
+if command -v iw >/dev/null 2>&1; then
+  for iface in /sys/class/net/*/wireless; do
+    [ -d "$iface" ] || continue
+    iface="$(basename "$(dirname "$iface")")"
+    printf '%s: ' "$iface"
+    iw dev "$iface" get power_save 2>/dev/null || true
+  done
+fi
+
+echo
+echo "Block devices:"
+lsblk -o NAME,TYPE,SIZE,MODEL,TRAN,MOUNTPOINTS 2>/dev/null || true
+
+echo
+echo "USB runtime power:"
+for dev in /sys/bus/usb/devices/*; do
+  [ -e "$dev/idVendor" ] || continue
+  product="$(cat "$dev/product" 2>/dev/null || true)"
+  vendor="$(cat "$dev/idVendor" 2>/dev/null || true)"
+  id="$(cat "$dev/idProduct" 2>/dev/null || true)"
+  status="$(cat "$dev/power/runtime_status" 2>/dev/null || true)"
+  control="$(cat "$dev/power/control" 2>/dev/null || true)"
+  printf '%s %s:%s %s runtime=%s control=%s\n' "$(basename "$dev")" "$vendor" "$id" "$product" "$status" "$control"
+done
+
+if command -v powertop >/dev/null 2>&1; then
+  echo
+  echo "PowerTOP:"
+  echo "Run this for an interactive breakdown: sudo powertop"
+  echo "Run this for a report file: sudo powertop --time=60 --html=/tmp/powertop.html"
+fi

@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+duration="${1:-180}"
+case "$duration" in
+  ''|*[!0-9]*)
+    echo "Usage: battery-expansion-test [seconds-per-phase]" >&2
+    exit 2
+    ;;
+esac
+
+measure() {
+  local label="$1"
+
+  echo
+  echo "== $label =="
+  echo "Settle: ${duration}s"
+  sleep "$duration"
+  battery-power-report 0 | sed 's/^/  /'
+}
+
+echo "Expansion card battery A/B test"
+echo
+echo "Phase 1 measures the current card layout."
+echo "Phase 2 measures after you remove non-USB-C expansion cards or switch to USB-C only."
+echo "Press Enter to start phase 1."
+read -r _
+measure "current layout"
+
+echo
+echo "Now remove USB-A, SD, HDMI, DP, Ethernet, or storage expansion cards."
+echo "Leave USB-C cards installed where possible, then press Enter."
+read -r _
+measure "USB-C only / reduced layout"

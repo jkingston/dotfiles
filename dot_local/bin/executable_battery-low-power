@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'USAGE'
+Usage: battery-low-power on [--wifi-off]
+       battery-low-power off
+       battery-low-power status
+
+Switches the laptop into a more aggressive low-power state for manual testing.
+USAGE
+}
+
+set_profile() {
+  local profile="$1"
+
+  if command -v tuned-adm >/dev/null 2>&1; then
+    tuned-adm profile "$profile" >/dev/null 2>&1 || true
+  elif command -v powerprofilesctl >/dev/null 2>&1; then
+    case "$profile" in
+      framework12-battery|powersave)
+        powerprofilesctl set power-saver >/dev/null 2>&1 || true
+        ;;
+      balanced)
+        powerprofilesctl set balanced >/dev/null 2>&1 || true
+        ;;
+    esac
+  fi
+}
+
+set_keyboard_backlight() {
+  if command -v brightnessctl >/dev/null 2>&1; then
+    brightnessctl --device='*kbd_backlight*' set 0 >/dev/null 2>&1 || true
+  fi
+}
+
+set_wifi_save() {
+  local state="$1"
+
+  command -v iw >/dev/null 2>&1 || return 0
+  for iface in /sys/class/net/*/wireless; do
+    [ -d "$iface" ] || continue
+    iface="$(basename "$(dirname "$iface")")"
+    iw dev "$iface" set power_save "$state" 2>/dev/null || true
+  done
+}
+
+case "${1:-}" in
+  on)
+    shift
+    wifi_off=false
+    while [ "$#" -gt 0 ]; do
+      case "$1" in
+        --wifi-off)
+          wifi_off=true
+          ;;
+        -h|--help)
+          usage
+          exit 0
+          ;;
+        *)
+          usage >&2
+          exit 2
+          ;;
+      esac
+      shift
+    done
+
+    set_profile framework12-battery
+    set_wifi_save on
+    set_keyboard_backlight
+    rfkill block bluetooth 2>/dev/null || true
+    $wifi_off && rfkill block wifi 2>/dev/null || true
+    ;;
+  off)
+    set_profile balanced
+    set_wifi_save off
+    rfkill unblock bluetooth 2>/dev/null || true
+    rfkill unblock wifi 2>/dev/null || true
+    ;;
+  status)
+    if command -v tuned-adm >/dev/null 2>&1; then
+      tuned-adm active 2>/dev/null || true
+    elif command -v powerprofilesctl >/dev/null 2>&1; then
+      powerprofilesctl get 2>/dev/null || true
+    fi
+    rfkill list 2>/dev/null || true
+    if command -v iw >/dev/null 2>&1; then
+      for iface in /sys/class/net/*/wireless; do
+        [ -d "$iface" ] || continue
+        iface="$(basename "$(dirname "$iface")")"
+        iw dev "$iface" get power_save 2>/dev/null || true
+      done
+    fi
+    ;;
+  -h|--help)
+    usage
+    ;;
+  *)
+    usage >&2
+    exit 2
+    ;;
+esac
