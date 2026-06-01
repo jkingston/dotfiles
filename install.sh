@@ -272,6 +272,15 @@ HandleLidSwitchExternalPower=suspend
 HandleLidSwitchDocked=ignore
 LID
 
+# Prefer lower-drain suspend mode on laptops that expose it.
+if [ '$IS_LAPTOP' = true ]; then
+    mkdir -p /etc/systemd/sleep.conf.d
+    cat > /etc/systemd/sleep.conf.d/10-memory-sleep.conf <<SLEEP
+[Sleep]
+MemorySleepMode=deep
+SLEEP
+fi
+
 # Laptop services
 if [ '$IS_LAPTOP' = true ]; then
     systemctl enable power-profiles-daemon || true

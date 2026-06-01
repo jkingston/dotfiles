@@ -1,0 +1,14 @@
+{{ if and (eq .chezmoi.os "linux") .is_laptop -}}
+#!/usr/bin/env bash
+set -euo pipefail
+
+tmp="$(mktemp)"
+trap 'rm -f "$tmp"' EXIT
+
+cat > "$tmp" <<'SLEEP'
+[Sleep]
+MemorySleepMode=deep
+SLEEP
+
+sudo install -Dm644 "$tmp" /etc/systemd/sleep.conf.d/10-memory-sleep.conf
+{{ end -}}
