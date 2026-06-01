@@ -1103,7 +1103,7 @@ test_rbw_package_contract() {
     assert_repo_contains dot_local/bin/executable_rbw-menu 'rofi-rbw' &&
     assert_repo_contains dot_local/bin/executable_rbw-menu '--typer wtype' &&
     assert_repo_contains dot_local/bin/executable_rbw-menu 'rbw config set pinentry "$HOME/.local/bin/rbw-pinentry"' &&
-    assert_repo_contains dot_local/bin/executable_rbw-pinentry 'GDK_SCALE="${PINENTRY_GDK_SCALE:-2}"' &&
+    assert_repo_contains dot_local/bin/executable_rbw-pinentry.tmpl 'GDK_SCALE="${PINENTRY_GDK_SCALE:-{{ if eq .hostname "fw12" }}1{{ else }}2{{ end }}}"' &&
     assert_repo_contains dot_local/bin/executable_rbw-menu 'Missing $command; install rbw and rofi-rbw' &&
     assert_repo_contains dot_local/bin/executable_rbw-menu 'Set server (current: %s)' &&
     assert_repo_contains dot_local/bin/executable_rbw-menu 'rbw config set base_url "$url"' &&
