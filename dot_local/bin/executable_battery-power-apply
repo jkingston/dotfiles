@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+on_ac=false
+for ps in /sys/class/power_supply/*; do
+  [ -r "$ps/type" ] && [ -r "$ps/online" ] || continue
+  type="$(cat "$ps/type")"
+  [ "$type" = "Mains" ] || [ "$type" = "USB" ] || continue
+  if [ "$(cat "$ps/online")" = "1" ]; then
+    on_ac=true
+    break
+  fi
+done
+
+if command -v powerprofilesctl >/dev/null 2>&1; then
+  mapfile -t profiles < <(powerprofilesctl list 2>/dev/null | awk '/^\s*[* ]\s*[a-zA-Z0-9-]+:$/ { gsub(/^[*[:space:]]+|:$/,""); print }')
+
+  has_profile() {
+    local wanted="$1"
+    printf '%s\n' "${profiles[@]}" | grep -Fxq "$wanted"
+  }
+
+  if $on_ac; then
+    if has_profile balanced; then
+      powerprofilesctl set balanced || true
+    fi
+  else
+    if has_profile power-saver; then
+      powerprofilesctl set power-saver || true
+    elif has_profile balanced; then
+      powerprofilesctl set balanced || true
+    fi
+  fi
+fi
+
+if command -v iw >/dev/null 2>&1; then
+  wifi_save=on
+  $on_ac && wifi_save=off
+
+  for iface in /sys/class/net/*/wireless; do
+    [ -d "$iface" ] || continue
+    iface="$(basename "$(dirname "$iface")")"
+    iw dev "$iface" set power_save "$wifi_save" 2>/dev/null || true
+  done
+fi

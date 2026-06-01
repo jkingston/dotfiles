@@ -1,0 +1,29 @@
+{{ if and (eq .chezmoi.os "linux") .is_laptop -}}
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "${CHEZMOI_SKIP_SYSTEM_POWER:-0}" = "1" ]; then
+  exit 0
+fi
+
+tmp_nm="$(mktemp)"
+tmp_udev="$(mktemp)"
+trap 'rm -f "$tmp_nm" "$tmp_udev"' EXIT
+
+cat > "$tmp_nm" <<'NM'
+[connection]
+wifi.powersave = 3
+NM
+
+cat > "$tmp_udev" <<'UDEV'
+SUBSYSTEM=="power_supply", ATTR{type}=="Mains", RUN+="/usr/bin/systemd-run --no-block --collect /home/jack/.local/bin/battery-power-apply"
+SUBSYSTEM=="power_supply", ATTR{type}=="USB", RUN+="/usr/bin/systemd-run --no-block --collect /home/jack/.local/bin/battery-power-apply"
+UDEV
+
+sudo install -Dm644 "$tmp_nm" /etc/NetworkManager/conf.d/10-wifi-powersave.conf
+sudo install -Dm644 "$tmp_udev" /etc/udev/rules.d/99-battery-power.rules
+sudo systemctl enable --now power-profiles-daemon.service
+sudo udevadm control --reload
+sudo udevadm trigger --subsystem-match=power_supply
+/home/jack/.local/bin/battery-power-apply || true
+{{ end -}}

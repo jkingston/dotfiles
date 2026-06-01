@@ -5,7 +5,7 @@
 ARCH_COMMON_PACKAGES=(
     base linux linux-firmware
     mkinitcpio iptables-nft
-    networkmanager bluez bluez-utils
+    networkmanager iw bluez bluez-utils
     git neovim sudo base-devel chezmoi
     flatpak
     plymouth
