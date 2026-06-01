@@ -33,7 +33,7 @@ plymouth
 pipewire pipewire-alsa pipewire-pulse pipewire-jack wireplumber
 ghostty starship fzf zoxide bat eza
 btop ripgrep fd jq tree unzip ncdu duf procs tldr git-delta
-github-cli direnv mise lazygit lazydocker openssh rbw rofi-rbw wtype gum
+github-cli direnv mise lazygit lazydocker openssh rbw rofi-rbw wtype gum kguiaddons kwindowsystem
 ttf-jetbrains-mono-nerd ttf-cascadia-code-nerd noto-fonts noto-fonts-emoji
 ufw pacman-contrib bc libnotify
 ```
@@ -69,7 +69,7 @@ org.localsend.localsend_app
 ```bash
 chezmoi verify
 pacman -Q ghostty neovim starship mise ufw libnotify
-pacman -Q openssh rbw rofi-rbw wtype gum
+pacman -Q openssh rbw rofi-rbw wtype gum kguiaddons kwindowsystem
 pacman -Q flatpak
 flatpak list --app | grep -F app.zen_browser.zen
 flatpak list --app | grep -F org.localsend.localsend_app

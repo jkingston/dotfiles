@@ -1095,7 +1095,8 @@ test_flatpak_package_contract() {
 
 test_rbw_package_contract() {
   assert_repo_contains package-sets.sh 'github-cli direnv mise lazygit lazydocker openssh rbw rofi-rbw wtype gum' &&
-    assert_repo_contains DESKTOPS.md 'pacman -Q openssh rbw rofi-rbw wtype gum' &&
+    assert_repo_contains package-sets.sh 'kguiaddons kwindowsystem' &&
+    assert_repo_contains DESKTOPS.md 'pacman -Q openssh rbw rofi-rbw wtype gum kguiaddons kwindowsystem' &&
     assert_repo_contains dot_bashrc 'SSH_AUTH_SOCK="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/rbw/ssh-agent-socket"' &&
     assert_repo_contains dot_config/environment.d/rbw-ssh-agent.conf 'SSH_AUTH_SOCK=${XDG_RUNTIME_DIR}/rbw/ssh-agent-socket' &&
     assert_repo_contains dot_config/systemd/user/rbw-agent.service 'ExecStart=/usr/bin/rbw-agent --no-daemonize' &&
@@ -1103,7 +1104,8 @@ test_rbw_package_contract() {
     assert_repo_contains dot_local/bin/executable_rbw-menu 'rofi-rbw' &&
     assert_repo_contains dot_local/bin/executable_rbw-menu '--typer wtype' &&
     assert_repo_contains dot_local/bin/executable_rbw-menu 'rbw config set pinentry "$HOME/.local/bin/rbw-pinentry"' &&
-    assert_repo_contains dot_local/bin/executable_rbw-pinentry.tmpl 'GDK_SCALE="${PINENTRY_GDK_SCALE:-{{ if eq .hostname "fw12" }}1{{ else }}2{{ end }}}"' &&
+    assert_repo_contains dot_local/bin/executable_rbw-pinentry.tmpl 'QT_SCALE_FACTOR="${PINENTRY_QT_SCALE_FACTOR:-{{ .monitor_scale }}}"' &&
+    assert_repo_contains dot_local/bin/executable_rbw-pinentry.tmpl 'exec /usr/bin/pinentry-qt "$@"' &&
     assert_repo_contains dot_local/bin/executable_rbw-menu 'Missing $command; install rbw and rofi-rbw' &&
     assert_repo_contains dot_local/bin/executable_rbw-menu 'Set server (current: %s)' &&
     assert_repo_contains dot_local/bin/executable_rbw-menu 'rbw config set base_url "$url"' &&
