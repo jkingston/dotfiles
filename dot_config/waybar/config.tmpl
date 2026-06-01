@@ -19,7 +19,7 @@
     "custom/nightlight"
 {{- if .is_laptop }},
     "backlight",
-    "battery"
+    "custom/battery"
 {{- end }}
   ],
   "custom/launcher": {
@@ -129,18 +129,11 @@
     "on-scroll-up": "swayosd-client --brightness raise",
     "on-scroll-down": "swayosd-client --brightness lower"
   },
-  "battery": {
-    "format": "{icon}",
-    "format-charging": "{icon}",
-    "format-plugged": "",
-    "format-icons": {
-      "charging": ["󰢜", "󰂆", "󰂇", "󰂈", "󰢝", "󰂉", "󰢞", "󰂊", "󰂋", "󰂅"],
-      "default": ["󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"]
-    },
-    "format-full": "󰂅",
-    "tooltip-format": "{power:.1f}W {capacity}%",
+  "custom/battery": {
+    "exec": "~/.local/bin/waybar-battery",
+    "return-type": "json",
     "interval": 5,
     "on-click": "~/.local/bin/hypr-power-menu",
-    "states": { "warning": 20, "critical": 10 }
+    "tooltip": true
   }
 }

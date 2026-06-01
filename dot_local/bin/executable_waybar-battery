@@ -1,0 +1,170 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/waybar-battery"
+samples_file="$state_dir/samples"
+mkdir -p "$state_dir"
+
+emit() {
+  jq -cn \
+    --arg text "$1" \
+    --arg tooltip "$2" \
+    --arg class "$3" \
+    --arg percentage "${4:-0}" \
+    '{text:$text, tooltip:$tooltip, class:$class, percentage:($percentage|tonumber)}'
+}
+
+format_duration() {
+  local text="$1"
+  if [[ "$text" =~ ^([0-9]+([.][0-9]+)?)[[:space:]]+hours?$ ]]; then
+    awk -v h="${BASH_REMATCH[1]}" 'BEGIN { total = int(h * 60 + 0.5); printf "%dh %02dm", int(total / 60), total % 60 }'
+  elif [[ "$text" =~ ^([0-9]+([.][0-9]+)?)[[:space:]]+minutes?$ ]]; then
+    awk -v m="${BASH_REMATCH[1]}" 'BEGIN { total = int(m + 0.5); printf "%dh %02dm", int(total / 60), total % 60 }'
+  else
+    printf '%s' "${text:-unknown}"
+  fi
+}
+
+icon_for() {
+  local state="$1"
+  local percentage="$2"
+  local icons
+
+  if [ "$state" = "charging" ]; then
+    icons=("󰢜" "󰂆" "󰂇" "󰂈" "󰢝" "󰂉" "󰢞" "󰂊" "󰂋" "󰂅")
+  else
+    icons=("󰁺" "󰁻" "󰁼" "󰁽" "󰁾" "󰁿" "󰂀" "󰂁" "󰂂" "󰁹")
+  fi
+
+  if [ "$percentage" -ge 100 ]; then
+    printf '󰂅'
+  else
+    printf '%s' "${icons[$((percentage / 10))]}"
+  fi
+}
+
+upower_battery() {
+  command -v upower >/dev/null 2>&1 || return 1
+
+  local dev info
+  while IFS= read -r dev; do
+    info="$(upower -i "$dev" 2>/dev/null || true)"
+    if grep -q 'power supply:[[:space:]]*yes' <<<"$info"; then
+      printf '%s\n' "$dev"
+      return 0
+    fi
+  done < <(upower -e 2>/dev/null | grep '/battery_')
+
+  return 1
+}
+
+sysfs_battery() {
+  for candidate in /sys/class/power_supply/BAT*; do
+    [ -d "$candidate" ] && printf '%s\n' "$candidate" && return 0
+  done
+  return 1
+}
+
+read_num() {
+  local file="$1"
+  [ -r "$file" ] && cat "$file" || printf '0'
+}
+
+now="$(date +%s)"
+source_label="UPower"
+state="unknown"
+percentage=0
+energy=0
+energy_full=0
+energy_design=0
+watts=0
+voltage=0
+cycles="unknown"
+time_label="unknown"
+
+if dev="$(upower_battery)"; then
+  info="$(upower -i "$dev")"
+  state="$(awk -F: '/state:/ { gsub(/^[ \t]+/, "", $2); print $2; exit }' <<<"$info")"
+  percentage="$(awk '/percentage:/ { gsub("%", "", $2); print int($2); exit }' <<<"$info")"
+  energy="$(awk '/energy:/ { print $2; exit }' <<<"$info")"
+  energy_full="$(awk '/energy-full:/ { print $2; exit }' <<<"$info")"
+  energy_design="$(awk '/energy-full-design:/ { print $2; exit }' <<<"$info")"
+  watts="$(awk '/energy-rate:/ { print $2; exit }' <<<"$info")"
+  voltage="$(awk '/voltage:/ { print $2; exit }' <<<"$info")"
+  cycles="$(awk '/charge-cycles:/ { print $2; exit }' <<<"$info")"
+
+  if [ "$state" = "charging" ]; then
+    raw_time="$(awk -F: '/time to full:/ { gsub(/^[ \t]+/, "", $2); print $2; exit }' <<<"$info")"
+    time_label="Full in $(format_duration "$raw_time")"
+  elif [ "$state" = "discharging" ]; then
+    raw_time="$(awk -F: '/time to empty:/ { gsub(/^[ \t]+/, "", $2); print $2; exit }' <<<"$info")"
+    time_label="$(format_duration "$raw_time") remaining"
+  else
+    time_label="$state"
+  fi
+elif bat="$(sysfs_battery)"; then
+  source_label="sysfs"
+  raw_state="$(cat "$bat/status" 2>/dev/null || printf 'Unknown')"
+  state="$(tr '[:upper:]' '[:lower:]' <<<"$raw_state")"
+  percentage="$(read_num "$bat/capacity")"
+
+  charge_now="$(read_num "$bat/charge_now")"
+  charge_full="$(read_num "$bat/charge_full")"
+  charge_design="$(read_num "$bat/charge_full_design")"
+  current_now="$(read_num "$bat/current_now")"
+  voltage_now="$(read_num "$bat/voltage_now")"
+  cycles="$(cat "$bat/cycle_count" 2>/dev/null || printf 'unknown')"
+
+  watts="$(awk -v c="$current_now" -v v="$voltage_now" 'BEGIN { printf "%.2f", (c * v) / 1000000000000 }')"
+  voltage="$(awk -v v="$voltage_now" 'BEGIN { printf "%.2f", v / 1000000 }')"
+  energy="$(awk -v q="$charge_now" -v v="$voltage_now" 'BEGIN { printf "%.2f", (q * v) / 1000000000000 }')"
+  energy_full="$(awk -v q="$charge_full" -v v="$voltage_now" 'BEGIN { printf "%.2f", (q * v) / 1000000000000 }')"
+  energy_design="$(awk -v q="$charge_design" -v v="$voltage_now" 'BEGIN { printf "%.2f", (q * v) / 1000000000000 }')"
+else
+  emit "󰚥" "No battery found" "missing" 0
+  exit 0
+fi
+
+tmp_samples="$(mktemp)"
+trap 'rm -f "$tmp_samples"' EXIT
+
+if [ -f "$samples_file" ]; then
+  awk -v now="$now" -v state="$state" '$1 >= now - 120 && $3 == state { print }' "$samples_file" > "$tmp_samples"
+fi
+printf '%s %.4f %s\n' "$now" "$watts" "$state" >> "$tmp_samples"
+mv "$tmp_samples" "$samples_file"
+trap - EXIT
+
+avg_watts="$(awk '{ sum += $2; count++ } END { if (count) printf "%.2f", sum / count; else print "0.00" }' "$samples_file")"
+
+if [ "$time_label" = "unknown" ] && awk -v w="$avg_watts" 'BEGIN { exit !(w > 0.1) }'; then
+  if [ "$state" = "charging" ]; then
+    time_label="$(awk -v full="$energy_full" -v now="$energy" -v w="$avg_watts" 'BEGIN { h=(full-now)/w; total=int(h*60+0.5); printf "Full in %dh %02dm", int(total/60), total%60 }')"
+  elif [ "$state" = "discharging" ]; then
+    time_label="$(awk -v e="$energy" -v w="$avg_watts" 'BEGIN { h=e/w; total=int(h*60+0.5); printf "%dh %02dm remaining", int(total/60), total%60 }')"
+  fi
+fi
+
+health="$(awk -v full="$energy_full" -v design="$energy_design" 'BEGIN { if (design > 0) printf "%.0f", full * 100 / design; else print "0" }')"
+
+class="normal"
+if [ "$state" = "charging" ]; then
+  class="charging"
+elif [ "$percentage" -le 10 ]; then
+  class="critical"
+elif [ "$percentage" -le 20 ]; then
+  class="warning"
+elif [ "$state" = "fully-charged" ] || [ "$state" = "full" ]; then
+  class="full"
+fi
+
+profile="$(powerprofilesctl get 2>/dev/null || true)"
+profile_line=""
+[ -n "$profile" ] && profile_line="
+Profile: $profile"
+
+text="$(icon_for "$state" "$percentage")"
+tooltip="$(printf '%s%% • %s\nNow: %.2f W\nAverage: %s W\nEnergy: %.2f / %.2f Wh\nVoltage: %.2f V\nHealth: %s%% • Cycles: %s\nSource: %s%s' \
+  "$percentage" "$time_label" "$watts" "$avg_watts" "$energy" "$energy_full" "$voltage" "$health" "$cycles" "$source_label" "$profile_line")"
+
+emit "$text" "$tooltip" "$class" "$percentage"
