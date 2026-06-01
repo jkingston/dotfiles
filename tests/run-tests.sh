@@ -363,6 +363,7 @@ case "$*" in
   "-Q ghostty"|"-Q grimblast-git"|"-Q app.zen_browser.zen") exit 0 ;;
   "-Qqet") printf "%s\n" ghostty extra-native catppuccin-gtk-theme-mocha extra-aur; exit 0 ;;
   "-Qqm") printf "%s\n" catppuccin-gtk-theme-mocha extra-aur; exit 0 ;;
+  "-Qqdt") printf "%s\n" orphan-lib orphan-tool; exit 0 ;;
 esac
 if [ "${1:-}" = "-Syu" ] || [ "${1:-}" = "-Rns" ]; then
   exit 0
@@ -1139,6 +1140,8 @@ test_package_sync_arch_clean_dry_run_reports_only() {
     grep -F 'extra-native' "$TEST_TMP/stdout" >/dev/null &&
     grep -F 'extra-aur' "$TEST_TMP/stdout" >/dev/null &&
     grep -F 'org.extra.App' "$TEST_TMP/stdout" >/dev/null &&
+    grep -F 'orphan-lib' "$TEST_TMP/stdout" >/dev/null &&
+    grep -F 'orphan-tool' "$TEST_TMP/stdout" >/dev/null &&
     assert_log_not_contains "pacman -Rns" &&
     assert_log_not_contains "yay -Rns" &&
     assert_log_not_contains "flatpak uninstall"
@@ -1148,7 +1151,8 @@ test_package_sync_arch_clean_confirm_removes_extras() {
   bash "$ROOT_DIR/package-sync.sh" clean --confirm --profile minipc >"$TEST_TMP/stdout" 2>"$TEST_TMP/stderr" &&
     assert_log_contains "sudo pacman -Rns --noconfirm extra-native" &&
     assert_log_contains "yay -Rns --noconfirm extra-aur" &&
-    assert_log_contains "flatpak uninstall --system -y org.extra.App"
+    assert_log_contains "flatpak uninstall --system -y org.extra.App" &&
+    assert_log_contains "sudo pacman -Rns --noconfirm orphan-lib orphan-tool"
 }
 
 test_package_sync_macos_install_uses_homebrew_cli_set() {
