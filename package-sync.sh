@@ -28,7 +28,7 @@ Usage:
   $0 clean --confirm [--profile framework12|minipc]
 
 Notes:
-  clean defaults to report-only and compares explicitly installed packages.
+  clean defaults to report-only and includes orphaned dependency packages.
 USAGE
 }
 
@@ -204,6 +204,7 @@ print_or_remove() {
         case "$remover" in
             arch-repo) sudo pacman -Rns --noconfirm "${extras[@]}" ;;
             aur) yay -Rns --noconfirm "${extras[@]}" ;;
+            orphan) sudo pacman -Rns --noconfirm "${extras[@]}" ;;
             flatpak) flatpak uninstall --system -y "${extras[@]}" ;;
             brew) brew uninstall "${extras[@]}" ;;
             *) error "Unknown remover: $remover" ;;
@@ -212,7 +213,7 @@ print_or_remove() {
 }
 
 arch_clean() {
-    local profile="$1" tmp explicit_all foreign_all explicit_repo aur flatpaks repo_extras aur_extras flatpak_extras
+    local profile="$1" tmp explicit_all foreign_all explicit_repo aur flatpaks repo_extras aur_extras flatpak_extras orphans
     arch_repo_package_array "$profile"
     tmp="$(mktemp -d)"
     trap 'rm -rf "$tmp"' RETURN
@@ -225,12 +226,14 @@ arch_clean() {
     repo_extras="$tmp/repo-extras"
     aur_extras="$tmp/aur-extras"
     flatpak_extras="$tmp/flatpak-extras"
+    orphans="$tmp/orphans"
 
     pacman -Qqet | sort -u > "$explicit_all"
     pacman -Qqm 2>/dev/null | sort -u > "$foreign_all" || : > "$foreign_all"
     comm -23 "$explicit_all" "$foreign_all" > "$explicit_repo"
     comm -12 "$explicit_all" "$foreign_all" > "$aur"
     flatpak list --system --app --columns=application 2>/dev/null | sort -u > "$flatpaks" || : > "$flatpaks"
+    pacman -Qqdt 2>/dev/null | sort -u > "$orphans" || : > "$orphans"
 
     extras_from_lists "$explicit_repo" "${ARCH_REPO_WANTED[@]}" "${ARCH_PROTECTED_PACKAGES[@]}" yay-bin > "$repo_extras"
     extras_from_lists "$aur" "${ARCH_AUR_PACKAGES[@]}" yay-bin "${ARCH_PROTECTED_PACKAGES[@]}" > "$aur_extras"
@@ -239,6 +242,7 @@ arch_clean() {
     print_or_remove "Extra explicit Arch repository packages:" arch-repo "$repo_extras"
     print_or_remove "Extra AUR packages:" aur "$aur_extras"
     print_or_remove "Extra Flatpak apps:" flatpak "$flatpak_extras"
+    print_or_remove "Orphaned dependency packages:" orphan "$orphans"
 }
 
 macos_clean() {
