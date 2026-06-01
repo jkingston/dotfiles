@@ -292,6 +292,10 @@ printf "rbw %s\n" "$*" >> "$FAKE_LOG"
 case "${1:-} ${2:-}" in
   "get ssh/hosts")
     if [ "${3:-}" = "--field" ] && [ "${4:-}" = "config" ]; then
+      if [ "${FAKE_RBW_MISSING_CONFIG:-0}" = "1" ]; then
+        printf "%s\n" "rbw get: no entry found for ssh/hosts" >&2
+        exit 1
+      fi
       cat <<'"'"'JSON'"'"'
 {"hosts":[{"alias":"nas","hostname":"nas.local","user":"jack","key":"nas","port":2222,"extra":{"ForwardAgent":"no"}}],"keys":[{"name":"nas","item":"ssh/keys/nas","field":"public key"}]}
 JSON
@@ -400,7 +404,7 @@ printf "%s\n" "${FAKE_HOSTNAME:-minipc}"
   export HOME="$TEST_HOME"
   export PATH="$FAKE_BIN:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin"
   export FAKE_LOG ROFI_QUEUE
-  unset FAKE_PKILL_FAIL_WAYBAR FAKE_PGREP_MATCH FAKE_PIDOF_MATCH FAKE_SUNWAIT_POLL FAKE_SUNWAIT_REPORT FAKE_TIME_DATE_CTL_FAIL FAKE_TIMEZONE FAKE_CHECKUPDATES FAKE_YAY_UPDATES FAKE_RBW_UNLOCKED FAKE_RBW_EMAIL FAKE_RBW_BASE_URL_JSON FAKE_WL_PASTE RBW_MENU_FORCE_MISSING
+  unset FAKE_PKILL_FAIL_WAYBAR FAKE_PGREP_MATCH FAKE_PIDOF_MATCH FAKE_SUNWAIT_POLL FAKE_SUNWAIT_REPORT FAKE_TIME_DATE_CTL_FAIL FAKE_TIMEZONE FAKE_CHECKUPDATES FAKE_YAY_UPDATES FAKE_RBW_UNLOCKED FAKE_RBW_EMAIL FAKE_RBW_BASE_URL_JSON FAKE_RBW_MISSING_CONFIG FAKE_WL_PASTE RBW_MENU_FORCE_MISSING
 }
 
 reset_case() {
@@ -1169,6 +1173,7 @@ test_ssh_hosts_contract() {
     assert_repo_contains dot_local/bin/executable_ssh-hosts 'gum choose' &&
     assert_repo_contains dot_local/bin/executable_ssh-hosts 'IdentityFile ~/.ssh/rbw/' &&
     assert_repo_contains dot_local/bin/executable_ssh-hosts 'IdentitiesOnly yes' &&
+    assert_repo_contains dot_local/bin/executable_ssh-hosts 'setup|init) setup' &&
     assert_repo_contains .chezmoiignore.tmpl 'dot_local/bin/executable_ssh-hosts'
 }
 
@@ -1190,6 +1195,14 @@ test_ssh_hosts_sync_generates_local_config_and_keys() {
     grep -F "IdentitiesOnly yes" "$HOME/.ssh/config.local" >/dev/null &&
     grep -F "ForwardAgent no" "$HOME/.ssh/config.local" >/dev/null &&
     grep -F "ssh-ed25519 AAAATEST nas" "$HOME/.ssh/rbw/nas.pub" >/dev/null
+}
+
+test_ssh_hosts_missing_config_prints_setup_hint() {
+  FAKE_RBW_MISSING_CONFIG=1 bash "$ROOT_DIR/dot_local/bin/executable_ssh-hosts" sync >"$TEST_TMP/stdout" 2>"$TEST_TMP/stderr"
+  [ "$?" -ne 0 ] &&
+    grep -F "no entry found for ssh/hosts" "$TEST_TMP/stderr" >/dev/null &&
+    grep -F "Missing Bitwarden SSH host config." "$TEST_TMP/stderr" >/dev/null &&
+    grep -F "ssh-hosts template" "$TEST_TMP/stderr" >/dev/null
 }
 
 test_ssh_hosts_test_uses_rbw_agent_socket() {
@@ -1282,6 +1295,7 @@ run_hyprland_environment_tests() {
   run_case "rbw menu: reset server unsets urls" test_rbw_menu_reset_server_unsets_urls
   run_case "rbw clipboard: marks copied secrets sensitive" test_rbw_clipboard_wrapper_marks_sensitive
   run_case "ssh hosts: sync generates local config and keys" test_ssh_hosts_sync_generates_local_config_and_keys
+  run_case "ssh hosts: missing config prints setup hint" test_ssh_hosts_missing_config_prints_setup_hint
   run_case "ssh hosts: test uses rbw agent socket" test_ssh_hosts_test_uses_rbw_agent_socket
   run_case "keybind help: reads Hyprland binds and opens rofi" test_keybind_help_uses_hyprctl_and_rofi
   run_case "power menu: lock runs hyprlock" test_power_menu_lock_runs_hyprlock

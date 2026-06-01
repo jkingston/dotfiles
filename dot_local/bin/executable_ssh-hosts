@@ -45,10 +45,50 @@ template() {
 JSON
 }
 
+setup_hint() {
+  cat >&2 <<EOF
+
+Missing Bitwarden SSH host config.
+
+Create a Bitwarden item named:
+  $CONFIG_ITEM
+
+Add a custom text field named:
+  $CONFIG_FIELD
+
+Set that field to the JSON from:
+  ssh-hosts template
+
+Then run:
+  rbw sync
+  ssh-hosts sync
+EOF
+}
+
+setup() {
+  cat <<EOF
+Create a Bitwarden item named:
+  $CONFIG_ITEM
+
+Add a custom text field named:
+  $CONFIG_FIELD
+
+Use this JSON as the field value:
+
+EOF
+  template
+}
+
 fetch_config() {
+  local output
   require rbw
   require jq
-  rbw get "$CONFIG_ITEM" --field "$CONFIG_FIELD"
+  if ! output="$(rbw get "$CONFIG_ITEM" --field "$CONFIG_FIELD" 2>&1)"; then
+    printf '%s\n' "$output" >&2
+    setup_hint
+    exit 1
+  fi
+  printf '%s\n' "$output"
 }
 
 validate_config() {
@@ -118,7 +158,10 @@ show_config() {
 
 edit_config() {
   require rbw
-  rbw edit "$CONFIG_ITEM"
+  if ! rbw edit "$CONFIG_ITEM"; then
+    setup_hint
+    exit 1
+  fi
 }
 
 test_host() {
@@ -144,6 +187,7 @@ menu() {
     "Show Bitwarden config" \
     "Edit Bitwarden item" \
     "Test host" \
+    "Setup instructions" \
     "Print template")" || exit 0
 
   case "$choice" in
@@ -152,6 +196,7 @@ menu() {
     "Show Bitwarden config") show_config ;;
     "Edit Bitwarden item") edit_config ;;
     "Test host") test_host ;;
+    "Setup instructions") setup ;;
     "Print template") template ;;
   esac
 }
@@ -167,6 +212,7 @@ Commands:
   show       Print the Bitwarden JSON config
   edit       Open the Bitwarden config item in \$EDITOR
   test HOST  Test SSH auth for a generated host
+  setup      Print setup instructions and the example JSON
   template   Print an example Bitwarden config JSON
 
 Environment:
@@ -182,6 +228,7 @@ case "${1:-menu}" in
   show) show_config ;;
   edit) edit_config ;;
   test) shift; test_host "${1:-}" ;;
+  setup|init) setup ;;
   template) template ;;
   -h|--help|help) usage ;;
   *)
