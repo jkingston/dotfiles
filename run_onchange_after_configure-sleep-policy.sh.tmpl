@@ -11,7 +11,11 @@ trap 'rm -f "$tmp"' EXIT
 
 cat > "$tmp" <<'SLEEP'
 [Sleep]
-MemorySleepMode=deep
+MemorySleepMode=s2idle
+AllowSuspendThenHibernate=yes
+HibernateDelaySec=45min
+HibernateOnACPower=no
+SuspendEstimationSec=15min
 SLEEP
 
 sudo install -Dm644 "$tmp" /etc/systemd/sleep.conf.d/10-memory-sleep.conf

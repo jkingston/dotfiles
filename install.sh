@@ -232,8 +232,8 @@ else
 fi
 if [ '$IS_LAPTOP' = true ]; then
     RESUME_DEVICE=\$(findmnt -no SOURCE -T /swapfile)
-    RESUME_OFFSET=\$(filefrag -v /swapfile | awk '\$1 == \"0:\" { print \$4; exit }' | sed 's/\\.\\.//')
-    RESUME_OPT=\"resume=\${RESUME_DEVICE} resume_offset=\${RESUME_OFFSET} \"
+    RESUME_OFFSET=\$(filefrag -v /swapfile | awk '\$1 == \"0:\" { print \$4; exit }' | sed 's/[.]*$//')
+    RESUME_OPT=\"resume=\${RESUME_DEVICE} resume_offset=\${RESUME_OFFSET} rtc_cmos.use_acpi_alarm=1 \"
 else
     RESUME_OPT=''
 fi
@@ -285,9 +285,11 @@ GREETD
 mkdir -p /etc/systemd/logind.conf.d
 cat > /etc/systemd/logind.conf.d/lid.conf <<LID
 [Login]
-HandleLidSwitch=suspend
+HandleLidSwitch=suspend-then-hibernate
 HandleLidSwitchExternalPower=suspend
 HandleLidSwitchDocked=ignore
+HoldoffTimeoutSec=2s
+InhibitDelayMaxSec=2s
 LID
 
 # Prefer lower-drain suspend mode on laptops that expose it.
@@ -295,7 +297,11 @@ if [ '$IS_LAPTOP' = true ]; then
     mkdir -p /etc/systemd/sleep.conf.d
     cat > /etc/systemd/sleep.conf.d/10-memory-sleep.conf <<SLEEP
 [Sleep]
-MemorySleepMode=deep
+MemorySleepMode=s2idle
+AllowSuspendThenHibernate=yes
+HibernateDelaySec=45min
+HibernateOnACPower=no
+SuspendEstimationSec=15min
 SLEEP
 fi
 

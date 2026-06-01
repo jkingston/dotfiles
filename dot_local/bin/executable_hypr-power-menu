@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-choice=$(printf '%s\n' "Lock" "Suspend" "Log out" "Reboot" "Shut down" | rofi -dmenu -p "Power menu") || exit 0
+choice=$(printf '%s\n' "Lock" "Suspend" "Hibernate" "Log out" "Reboot" "Shut down" | rofi -dmenu -p "Power menu") || exit 0
 
 confirm() {
   local action="$1"
@@ -16,7 +16,10 @@ case "$choice" in
     pidof hyprlock >/dev/null 2>&1 || hyprlock
     ;;
   Suspend)
-    systemctl suspend
+    systemctl suspend-then-hibernate
+    ;;
+  Hibernate)
+    systemctl hibernate
     ;;
   "Log out")
     confirm "log out" || exit 0

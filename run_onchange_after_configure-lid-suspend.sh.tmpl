@@ -11,9 +11,11 @@ trap 'rm -f "$tmp"' EXIT
 
 cat > "$tmp" <<'LID'
 [Login]
-HandleLidSwitch=suspend
+HandleLidSwitch=suspend-then-hibernate
 HandleLidSwitchExternalPower=suspend
 HandleLidSwitchDocked=ignore
+HoldoffTimeoutSec=2s
+InhibitDelayMaxSec=2s
 LID
 
 sudo install -Dm644 "$tmp" /etc/systemd/logind.conf.d/lid.conf

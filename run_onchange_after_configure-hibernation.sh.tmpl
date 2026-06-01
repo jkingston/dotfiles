@@ -52,28 +52,47 @@ if ! grep -Eq '^HOOKS=.*\bresume\b' "$mkinitcpio_conf"; then
 fi
 
 resume_device="$(findmnt -no SOURCE -T "$swapfile")"
-resume_offset="$(sudo filefrag -v "$swapfile" | awk '$1 == "0:" { print $4; exit }' | sed 's/\\.\\.//')"
+resume_offset="$(sudo filefrag -v "$swapfile" | awk '$1 == "0:" { print $4; exit }' | sed 's/[.]*$//')"
 
 if [ -z "$resume_device" ] || [ -z "$resume_offset" ]; then
   echo "Could not determine resume device or swapfile offset." >&2
   exit 1
 fi
 
-if [ -d /boot/loader/entries ]; then
-  shopt -s nullglob
-  for entry in /boot/loader/entries/*.conf; do
-    if grep -q '^options ' "$entry"; then
-      sudo sed -i -E \
-        -e 's/[[:space:]]resume=[^[:space:]]+//g' \
-        -e 's/[[:space:]]resume_offset=[^[:space:]]+//g' \
-        "$entry"
-      sudo sed -i -E "s#^options (.*)#options \1 resume=$resume_device resume_offset=$resume_offset#" "$entry"
-    fi
-  done
-else
-  echo "No systemd-boot loader entries found under /boot/loader/entries." >&2
+boot_entries_dir=""
+for candidate in /boot/loader/entries /efi/loader/entries; do
+  if sudo test -d "$candidate"; then
+    boot_entries_dir="$candidate"
+    break
+  fi
+done
+
+if [ -z "$boot_entries_dir" ]; then
+  echo "No systemd-boot loader entries found under /boot/loader/entries or /efi/loader/entries." >&2
   exit 1
 fi
+
+if findmnt -no OPTIONS /boot 2>/dev/null | grep -qw ro; then
+  sudo mount -o remount,rw /boot
+fi
+
+mapfile -t boot_entries < <(sudo find "$boot_entries_dir" -maxdepth 1 -type f -name '*.conf' | sort)
+
+if [ "${#boot_entries[@]}" -eq 0 ]; then
+  echo "No systemd-boot entry files found under $boot_entries_dir." >&2
+  exit 1
+fi
+
+for entry in "${boot_entries[@]}"; do
+  if sudo grep -q '^options ' "$entry"; then
+    sudo sed -i -E \
+      -e 's/[[:space:]]resume=[^[:space:]]+//g' \
+      -e 's/[[:space:]]resume_offset=[^[:space:]]+//g' \
+      -e 's/[[:space:]]rtc_cmos\.use_acpi_alarm=[^[:space:]]+//g' \
+      "$entry"
+    sudo sed -i -E "s#^options (.*)#options \1 resume=$resume_device resume_offset=$resume_offset rtc_cmos.use_acpi_alarm=1#" "$entry"
+  fi
+done
 
 sudo mkinitcpio -P
 {{ end -}}
