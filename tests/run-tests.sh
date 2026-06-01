@@ -290,6 +290,18 @@ printf "%s" "${FAKE_WL_PASTE:-}"
   make_fake_bin rbw '#!/usr/bin/env bash
 printf "rbw %s\n" "$*" >> "$FAKE_LOG"
 case "${1:-} ${2:-}" in
+  "get ssh/hosts")
+    if [ "${3:-}" = "--field" ] && [ "${4:-}" = "config" ]; then
+      cat <<'"'"'JSON'"'"'
+{"hosts":[{"alias":"nas","hostname":"nas.local","user":"jack","key":"nas","port":2222,"extra":{"ForwardAgent":"no"}}],"keys":[{"name":"nas","item":"ssh/keys/nas","field":"public key"}]}
+JSON
+    fi
+    ;;
+  "get ssh/keys/nas")
+    if [ "${3:-}" = "--field" ] && [ "${4:-}" = "public key" ]; then
+      printf "%s\n" "ssh-ed25519 AAAATEST nas"
+    fi
+    ;;
   "unlocked ")
     [ "${FAKE_RBW_UNLOCKED:-0}" = "1" ]
     ;;
@@ -309,6 +321,17 @@ printf "rofi-rbw %s\n" "$*" >> "$FAKE_LOG"
 '
   make_fake_bin wtype '#!/usr/bin/env bash
 printf "wtype %s\n" "$*" >> "$FAKE_LOG"
+'
+  make_fake_bin gum '#!/usr/bin/env bash
+printf "gum %s\n" "$*" >> "$FAKE_LOG"
+case "${1:-}" in
+  choose) sed -n "1p" ;;
+  style) shift; while [ "${1:-}" = "--foreground" ]; do shift 2; done; printf "%s\n" "$*" ;;
+esac
+'
+  make_fake_bin ssh '#!/usr/bin/env bash
+printf "ssh %s\n" "$*" >> "$FAKE_LOG"
+printf "ssh-auth-sock %s\n" "${SSH_AUTH_SOCK:-}" >> "$FAKE_LOG"
 '
   make_fake_bin uwsm '#!/usr/bin/env bash
 printf "uwsm %s\n" "$*" >> "$FAKE_LOG"
@@ -1028,8 +1051,8 @@ test_flatpak_package_contract() {
 }
 
 test_rbw_package_contract() {
-  assert_repo_contains install.sh 'openssh rbw rofi-rbw wtype' &&
-    assert_repo_contains DESKTOPS.md 'pacman -Q openssh rbw rofi-rbw wtype' &&
+  assert_repo_contains install.sh 'openssh rbw rofi-rbw wtype gum' &&
+    assert_repo_contains DESKTOPS.md 'pacman -Q openssh rbw rofi-rbw wtype gum' &&
     assert_repo_contains dot_bashrc 'SSH_AUTH_SOCK="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/rbw/ssh-agent-socket"' &&
     assert_repo_contains dot_config/environment.d/rbw-ssh-agent.conf 'SSH_AUTH_SOCK=${XDG_RUNTIME_DIR}/rbw/ssh-agent-socket' &&
     assert_repo_contains dot_config/systemd/user/rbw-agent.service 'ExecStart=/usr/bin/rbw-agent --no-daemonize' &&
@@ -1043,6 +1066,42 @@ test_rbw_package_contract() {
     assert_repo_contains dot_local/bin/executable_rbw-menu 'rbw config set base_url "$url"' &&
     assert_repo_contains dot_local/bin/executable_rbw-menu 'rbw config unset base_url' &&
     assert_repo_contains dot_local/lib/rbw-clipboard/executable_wl-copy '--sensitive'
+}
+
+test_ssh_hosts_contract() {
+  assert_repo_contains private_dot_ssh/config 'Include ~/.ssh/config.local' &&
+    assert_repo_contains private_dot_ssh/config 'AddKeysToAgent no' &&
+    assert_repo_contains dot_local/bin/executable_ssh-hosts 'CONFIG_ITEM="${SSH_HOSTS_CONFIG_ITEM:-ssh/hosts}"' &&
+    assert_repo_contains dot_local/bin/executable_ssh-hosts 'gum choose' &&
+    assert_repo_contains dot_local/bin/executable_ssh-hosts 'IdentityFile ~/.ssh/rbw/' &&
+    assert_repo_contains dot_local/bin/executable_ssh-hosts 'IdentitiesOnly yes' &&
+    assert_repo_contains .chezmoiignore.tmpl 'dot_local/bin/executable_ssh-hosts'
+}
+
+test_ssh_hosts_template_is_valid() {
+  bash "$ROOT_DIR/dot_local/bin/executable_ssh-hosts" template | jq -e '.hosts[0].alias == "nas" and .keys[0].field == "public key"' >/dev/null
+}
+
+test_ssh_hosts_sync_generates_local_config_and_keys() {
+  bash "$ROOT_DIR/dot_local/bin/executable_ssh-hosts" sync &&
+    assert_log_contains "rbw get ssh/hosts --field config" &&
+    assert_log_contains "rbw get ssh/keys/nas --field public key" &&
+    assert_file_exists "$HOME/.ssh/config.local" &&
+    assert_file_exists "$HOME/.ssh/rbw/nas.pub" &&
+    grep -F "Host nas" "$HOME/.ssh/config.local" >/dev/null &&
+    grep -F "HostName nas.local" "$HOME/.ssh/config.local" >/dev/null &&
+    grep -F "User jack" "$HOME/.ssh/config.local" >/dev/null &&
+    grep -F "Port 2222" "$HOME/.ssh/config.local" >/dev/null &&
+    grep -F "IdentityFile ~/.ssh/rbw/nas.pub" "$HOME/.ssh/config.local" >/dev/null &&
+    grep -F "IdentitiesOnly yes" "$HOME/.ssh/config.local" >/dev/null &&
+    grep -F "ForwardAgent no" "$HOME/.ssh/config.local" >/dev/null &&
+    grep -F "ssh-ed25519 AAAATEST nas" "$HOME/.ssh/rbw/nas.pub" >/dev/null
+}
+
+test_ssh_hosts_test_uses_rbw_agent_socket() {
+  XDG_RUNTIME_DIR=/run/user/1000 bash "$ROOT_DIR/dot_local/bin/executable_ssh-hosts" test nas &&
+    assert_log_contains "ssh -o BatchMode=yes -T nas" &&
+    assert_log_contains "ssh-auth-sock /run/user/1000/rbw/ssh-agent-socket"
 }
 
 run_unit_tests() {
@@ -1078,6 +1137,8 @@ run_unit_tests() {
   run_case "chezmoi: idiomatic workflow and installer contract" test_chezmoi_workflow_contract
   run_case "flatpak: package install contract" test_flatpak_package_contract
   run_case "rbw: package and config contract" test_rbw_package_contract
+  run_case "ssh hosts: package and config contract" test_ssh_hosts_contract
+  run_case "ssh hosts: template is valid JSON" test_ssh_hosts_template_is_valid
 }
 
 run_gui_tests() {
@@ -1121,6 +1182,8 @@ run_hyprland_environment_tests() {
   run_case "rbw menu: set server configures base url" test_rbw_menu_set_server_configures_base_url
   run_case "rbw menu: reset server unsets urls" test_rbw_menu_reset_server_unsets_urls
   run_case "rbw clipboard: marks copied secrets sensitive" test_rbw_clipboard_wrapper_marks_sensitive
+  run_case "ssh hosts: sync generates local config and keys" test_ssh_hosts_sync_generates_local_config_and_keys
+  run_case "ssh hosts: test uses rbw agent socket" test_ssh_hosts_test_uses_rbw_agent_socket
   run_case "keybind help: reads Hyprland binds and opens rofi" test_keybind_help_uses_hyprctl_and_rofi
   run_case "power menu: lock runs hyprlock" test_power_menu_lock_runs_hyprlock
   run_case "power menu: lock is no-op when already locked" test_power_menu_lock_is_noop_when_already_locked
