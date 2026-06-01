@@ -51,7 +51,7 @@ load_profile() {
             IS_VM=false
             MONITOR="eDP-1"
             SCALE="1.25"
-            GAPS_INNER=5
+            GAPS_INNER=3
             GAPS_OUTER=5
             BORDER=2
             GPU="intel"
