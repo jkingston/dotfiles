@@ -191,6 +191,19 @@ general {
 
 decoration {
     rounding = 0
+{{- if .is_laptop }}
+    active_opacity = 1.0
+    inactive_opacity = 1.0
+    fullscreen_opacity = 1.0
+
+    blur {
+        enabled = false
+    }
+
+    shadow {
+        enabled = false
+    }
+{{- else }}
     active_opacity = 0.95
     inactive_opacity = 0.88
     fullscreen_opacity = 1.0
@@ -215,9 +228,13 @@ decoration {
         range = 8
         render_power = 3
     }
+{{- end }}
 }
 
 animations {
+{{- if .is_laptop }}
+    enabled = false
+{{- else }}
     enabled = true
     bezier = easeOut, 0.16, 1, 0.3, 1
     bezier = easeIn, 0.3, 0, 0.8, 0.15
@@ -230,6 +247,7 @@ animations {
     animation = border, 1, 1, linear
     animation = fade, 1, 3, easeOut
     animation = workspaces, 1, 4, standard, slidefade 12%
+{{- end }}
 }
 
 misc {
@@ -253,10 +271,12 @@ windowrule = opacity 1.0 override 1.0 override, match:class ^(com.obsproject.Stu
 windowrule = opacity 1.0 override 1.0 override, match:class ^(zoom)$
 windowrule = opacity 1.0 override 1.0 override, match:class ^(steam_app_.*)$
 windowrule = opacity 1.0 override 1.0 override, match:fullscreen 1
+{{- if not .is_laptop }}
 windowrule = opacity 0.92 0.85, match:class ^(ghostty)$
 windowrule = opacity 0.95 0.9, match:class ^(.*Nautilus)$
 
 layerrule = blur on, match:namespace ^rofi$
 layerrule = blur on, match:namespace ^waybar$
+{{- end }}
 layerrule = ignore_alpha 0, match:namespace ^rofi$
 layerrule = ignore_alpha 0, match:namespace ^waybar$
