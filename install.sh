@@ -263,12 +263,12 @@ command = \"uwsm start hyprland.desktop\"
 user = \"$USERNAME\"
 GREETD
 
-# Logind - let hypridle handle lid
+# Logind - suspend immediately on lid close
 mkdir -p /etc/systemd/logind.conf.d
 cat > /etc/systemd/logind.conf.d/lid.conf <<LID
 [Login]
-HandleLidSwitch=ignore
-HandleLidSwitchExternalPower=ignore
+HandleLidSwitch=suspend
+HandleLidSwitchExternalPower=suspend
 HandleLidSwitchDocked=ignore
 LID
 

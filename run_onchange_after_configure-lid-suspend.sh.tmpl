@@ -1,0 +1,17 @@
+{{ if and (eq .chezmoi.os "linux") .is_laptop -}}
+#!/usr/bin/env bash
+set -euo pipefail
+
+tmp="$(mktemp)"
+trap 'rm -f "$tmp"' EXIT
+
+cat > "$tmp" <<'LID'
+[Login]
+HandleLidSwitch=suspend
+HandleLidSwitchExternalPower=suspend
+HandleLidSwitchDocked=ignore
+LID
+
+sudo install -Dm644 "$tmp" /etc/systemd/logind.conf.d/lid.conf
+sudo systemctl try-reload-or-restart systemd-logind.service
+{{ end -}}
