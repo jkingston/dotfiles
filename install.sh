@@ -307,7 +307,8 @@ fi
 
 # Laptop services
 if [ '$IS_LAPTOP' = true ]; then
-    systemctl enable power-profiles-daemon || true
+    systemctl enable tuned || true
+    systemctl enable tuned-ppd || true
     systemctl enable upower || true
 fi
 

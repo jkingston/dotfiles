@@ -158,7 +158,13 @@ elif [ "$state" = "fully-charged" ] || [ "$state" = "full" ]; then
   class="full"
 fi
 
-profile="$(powerprofilesctl get 2>/dev/null || true)"
+if command -v powerprofilesctl >/dev/null 2>&1; then
+  profile="$(powerprofilesctl get 2>/dev/null || true)"
+elif command -v tuned-adm >/dev/null 2>&1; then
+  profile="$(tuned-adm active 2>/dev/null | sed 's/^Current active profile: //')"
+else
+  profile=""
+fi
 profile_line=""
 [ -n "$profile" ] && profile_line="
 Profile: $profile"

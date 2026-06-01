@@ -120,9 +120,19 @@ arch_install_yay() {
     (cd "$tmpdir/yay-bin" && makepkg -si --noconfirm)
 }
 
+arch_remove_conflicts() {
+    if array_contains tuned-ppd "${ARCH_REPO_WANTED[@]}"; then
+        pacman -Q power-profiles-daemon >/dev/null 2>&1 || return 0
+        info "Removing power-profiles-daemon before installing tuned-ppd..."
+        sudo pacman -Rns --noconfirm power-profiles-daemon || true
+    fi
+}
+
 arch_install() {
     local profile="$1"
     arch_repo_package_array "$profile"
+
+    arch_remove_conflicts
 
     info "Installing Arch repository packages..."
     sudo pacman -Syu --needed --noconfirm "${ARCH_REPO_WANTED[@]}"

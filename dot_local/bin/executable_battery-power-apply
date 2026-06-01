@@ -12,7 +12,15 @@ for ps in /sys/class/power_supply/*; do
   fi
 done
 
-if command -v powerprofilesctl >/dev/null 2>&1; then
+if command -v tuned-adm >/dev/null 2>&1; then
+  if $on_ac; then
+    tuned-adm profile balanced >/dev/null 2>&1 || true
+  else
+    tuned-adm profile framework12-battery >/dev/null 2>&1 ||
+      tuned-adm profile powersave >/dev/null 2>&1 ||
+      true
+  fi
+elif command -v powerprofilesctl >/dev/null 2>&1; then
   mapfile -t profiles < <(powerprofilesctl list 2>/dev/null | awk '/^\s*[* ]\s*[a-zA-Z0-9-]+:$/ { gsub(/^[*[:space:]]+|:$/,""); print }')
 
   has_profile() {

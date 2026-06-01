@@ -29,7 +29,8 @@ ARCH_HYPRLAND_PACKAGES=(
 )
 
 ARCH_PROFILE_FRAMEWORK12_PACKAGES=(
-    intel-media-driver fwupd upower iio-sensor-proxy power-profiles-daemon
+    intel-media-driver intel-gpu-tools fwupd upower iio-sensor-proxy
+    tuned tuned-ppd powertop usbutils sysstat
 )
 
 ARCH_PROFILE_MINIPC_PACKAGES=()

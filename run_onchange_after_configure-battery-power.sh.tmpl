@@ -22,7 +22,13 @@ UDEV
 
 sudo install -Dm644 "$tmp_nm" /etc/NetworkManager/conf.d/10-wifi-powersave.conf
 sudo install -Dm644 "$tmp_udev" /etc/udev/rules.d/99-battery-power.rules
-sudo systemctl enable --now power-profiles-daemon.service
+sudo systemctl disable --now power-profiles-daemon.service 2>/dev/null || true
+if systemctl list-unit-files tuned.service --no-legend 2>/dev/null | grep -q '^tuned\.service'; then
+  sudo systemctl enable --now tuned.service
+fi
+if systemctl list-unit-files tuned-ppd.service --no-legend 2>/dev/null | grep -q '^tuned-ppd\.service'; then
+  sudo systemctl enable --now tuned-ppd.service
+fi
 sudo udevadm control --reload
 sudo udevadm trigger --subsystem-match=power_supply
 /home/jack/.local/bin/battery-power-apply || true
