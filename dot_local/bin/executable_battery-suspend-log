@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/battery-suspend-log"
+state_file="$state_dir/last"
+
+usage() {
+  cat <<'USAGE'
+Usage:
+  battery-suspend-log start [label]
+  battery-suspend-log finish
+
+Run "start" before closing the lid or suspending, then "finish" after wake.
+USAGE
+}
+
+battery_dir() {
+  for candidate in /sys/class/power_supply/BAT*; do
+    if [ -d "$candidate" ]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+read_file() {
+  local file="$1"
+  if [ -r "$file" ]; then
+    cat "$file"
+  else
+    printf 'unknown'
+  fi
+}
+
+sample() {
+  local bat now capacity status mem_sleep current voltage watts
+
+  bat="$(battery_dir)" || {
+    echo "No battery found under /sys/class/power_supply" >&2
+    exit 1
+  }
+
+  now="$(date +%s)"
+  capacity="$(read_file "$bat/capacity")"
+  status="$(read_file "$bat/status")"
+  mem_sleep="$(read_file /sys/power/mem_sleep)"
+  current="$(read_file "$bat/current_now")"
+  voltage="$(read_file "$bat/voltage_now")"
+  watts="unknown"
+
+  if [[ "$current" =~ ^[0-9]+$ && "$voltage" =~ ^[0-9]+$ ]]; then
+    watts="$(awk -v c="$current" -v v="$voltage" 'BEGIN { printf "%.2f", (c * v) / 1000000000000 }')"
+  fi
+
+  printf 'epoch=%s\ncapacity=%s\nstatus=%s\nmem_sleep=%q\nwatts=%s\n' \
+    "$now" "$capacity" "$status" "$mem_sleep" "$watts"
+}
+
+command="${1:-}"
+case "$command" in
+  start)
+    mkdir -p "$state_dir"
+    label="${2:-manual}"
+    {
+      printf 'label=%q\n' "$label"
+      sample
+    } > "$state_file"
+    echo "Recorded suspend baseline: $label"
+    ;;
+  finish)
+    if [ ! -f "$state_file" ]; then
+      echo "No baseline found. Run: battery-suspend-log start [label]" >&2
+      exit 1
+    fi
+
+    # shellcheck disable=SC1090
+    source "$state_file"
+    start_epoch="$epoch"
+    start_capacity="$capacity"
+    start_mem_sleep="$mem_sleep"
+    start_watts="$watts"
+
+    current_sample="$(sample)"
+    eval "$current_sample"
+
+    elapsed="$((epoch - start_epoch))"
+    if [[ "$start_capacity" =~ ^[0-9]+$ && "$capacity" =~ ^[0-9]+$ && "$elapsed" -gt 0 ]]; then
+      delta="$((start_capacity - capacity))"
+      rate="$(awk -v d="$delta" -v s="$elapsed" 'BEGIN { printf "%.2f", d * 3600 / s }')"
+    else
+      delta="unknown"
+      rate="unknown"
+    fi
+
+    printf 'Label: %s\n' "${label:-manual}"
+    printf 'Elapsed: %ss\n' "$elapsed"
+    printf 'Battery: %s%% -> %s%% (%s%%)\n' "$start_capacity" "$capacity" "$delta"
+    printf 'Drain rate: %s%%/hour\n' "$rate"
+    printf 'Sleep mode before: %s\n' "$start_mem_sleep"
+    printf 'Sleep mode after: %s\n' "$mem_sleep"
+    printf 'Power estimate before: %s W\n' "$start_watts"
+    printf 'Power estimate after: %s W\n' "$watts"
+    ;;
+  *)
+    usage
+    exit 2
+    ;;
+esac
