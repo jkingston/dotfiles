@@ -984,7 +984,7 @@ test_power_menu_escape_does_nothing() {
 }
 
 test_hyprland_autostart_contract() {
-  assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "exec-once = uwsm app -- waybar" &&
+  assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "exec-once = systemctl --user start waybar.service" &&
     assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "exec-once = uwsm app -- mako" &&
     assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "exec-once = uwsm app -- swayosd-server" &&
     assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "rbw-agent.service" &&

@@ -342,7 +342,7 @@ if { $desktop eq "hyprland" } {
     check "mako config exists" "test -f ~/.config/mako/config"
     check "rofi config exists" "test -f ~/.config/rofi/config.rasi"
     check "waypaper config exists" "test -f ~/.config/waypaper/config.ini"
-    check "hyprland starts waybar" "grep -F 'exec-once = uwsm app -- waybar' ~/.config/hypr/hyprland.conf"
+    check "hyprland starts waybar" "grep -F 'exec-once = systemctl --user start waybar.service' ~/.config/hypr/hyprland.conf"
     check "hyprland starts mako" "grep -F 'exec-once = uwsm app -- mako' ~/.config/hypr/hyprland.conf"
     check "hyprland starts swayosd" "grep -F 'exec-once = uwsm app -- swayosd-server' ~/.config/hypr/hyprland.conf"
     check "hyprland starts clipboard text history" "grep -F 'exec-once = wl-paste --watch cliphist store' ~/.config/hypr/hyprland.conf"
