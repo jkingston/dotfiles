@@ -2,6 +2,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [ "${CHEZMOI_SKIP_SYSTEM_POWER:-0}" = "1" ]; then
+  exit 0
+fi
+
 tmp="$(mktemp)"
 trap 'rm -f "$tmp"' EXIT
 

@@ -198,6 +198,17 @@ if [ '$USE_LUKS' = true ]; then
 else
     sed -i 's/^HOOKS=.*/HOOKS=(base udev plymouth autodetect microcode modconf kms keyboard keymap consolefont block filesystems fsck)/' /etc/mkinitcpio.conf
 fi
+if [ '$IS_LAPTOP' = true ]; then
+    fallocate -l 20480M /swapfile
+    chmod 600 /swapfile
+    mkswap /swapfile
+    printf '\n# Swapfile for system hibernation\n/swapfile none swap defaults,pri=0 0 0\n' >> /etc/fstab
+    if [ '$USE_LUKS' = true ]; then
+        sed -i -E 's/^(HOOKS=\([^)]*\bencrypt)([[:space:]])/\1 resume\2/' /etc/mkinitcpio.conf
+    else
+        sed -i -E 's/^(HOOKS=\([^)]*)([[:space:]]filesystems\b)/\1 resume\2/' /etc/mkinitcpio.conf
+    fi
+fi
 plymouth-set-default-theme bgrt || plymouth-set-default-theme spinner || true
 mkinitcpio -P
 
@@ -219,6 +230,13 @@ if [ '$USE_LUKS' = true ]; then
 else
     CRYPT_OPT=''
 fi
+if [ '$IS_LAPTOP' = true ]; then
+    RESUME_DEVICE=\$(findmnt -no SOURCE -T /swapfile)
+    RESUME_OFFSET=\$(filefrag -v /swapfile | awk '\$1 == \"0:\" { print \$4; exit }' | sed 's/\\.\\.//')
+    RESUME_OPT=\"resume=\${RESUME_DEVICE} resume_offset=\${RESUME_OFFSET} \"
+else
+    RESUME_OPT=''
+fi
 if [ '$INSTALL_SERIAL' = '1' ]; then
     SERIAL_OPT='console=tty1 console=ttyS0,115200n8 '
     QUIET_OPT=''
@@ -232,7 +250,7 @@ title   Arch Linux
 linux   /vmlinuz-linux
 initrd  /${MICROCODE}.img
 initrd  /initramfs-linux.img
-options \${CRYPT_OPT}\${SERIAL_OPT}root=UUID=\${ROOT_UUID} rw \${QUIET_OPT}
+options \${CRYPT_OPT}\${RESUME_OPT}\${SERIAL_OPT}root=UUID=\${ROOT_UUID} rw \${QUIET_OPT}
 BOOTEOF
 
 # User
@@ -360,7 +378,7 @@ else
     CHEZMOI_INIT_REPO="https://github.com/jkingston/dotfiles.git"
 fi
 chown -R 1000:1000 "/mnt/home/$USERNAME/.config/chezmoi"
-arch-chroot /mnt su - "$USERNAME" -c "chezmoi init --apply \
+arch-chroot /mnt su - "$USERNAME" -c "CHEZMOI_SKIP_SYSTEM_POWER=1 chezmoi init --apply \
     --promptString 'hostname=$HOSTNAME' \
     --promptBool 'is_laptop=$IS_LAPTOP' \
     --promptBool 'is_vm=$IS_VM' \

@@ -1,0 +1,79 @@
+{{ if and (eq .chezmoi.os "linux") .is_laptop -}}
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "${CHEZMOI_SKIP_SYSTEM_POWER:-0}" = "1" ]; then
+  exit 0
+fi
+
+swapfile="/swapfile"
+fstab="/etc/fstab"
+mkinitcpio_conf="/etc/mkinitcpio.conf"
+
+if [ ! -r /sys/power/image_size ]; then
+  echo "Hibernation is not supported by this kernel; skipping."
+  exit 0
+fi
+
+image_size_bytes="$(cat /sys/power/image_size)"
+swap_size_mib="$(( (image_size_bytes + 1048575) / 1048576 ))"
+
+if [ "$swap_size_mib" -lt 20480 ]; then
+  swap_size_mib=20480
+fi
+
+if [ ! -f "$swapfile" ]; then
+  sudo fallocate -l "${swap_size_mib}M" "$swapfile"
+  sudo chmod 600 "$swapfile"
+  sudo mkswap "$swapfile" >/dev/null
+else
+  sudo chmod 600 "$swapfile"
+  if ! sudo swaplabel "$swapfile" >/dev/null 2>&1; then
+    sudo mkswap "$swapfile" >/dev/null
+  fi
+fi
+
+if ! grep -Eq "^[^#[:space:]]+[[:space:]]+none[[:space:]]+swap[[:space:]]" "$fstab" || ! grep -Fq "$swapfile" "$fstab"; then
+  sudo cp -a "$fstab" "$fstab.$(date +%Y%m%d%H%M%S).bak"
+  printf '\n# Swapfile for system hibernation\n%s none swap defaults,pri=0 0 0\n' "$swapfile" | sudo tee -a "$fstab" >/dev/null
+fi
+
+if ! swapon --show=NAME --noheadings | grep -Fxq "$swapfile"; then
+  sudo swapon "$swapfile"
+fi
+
+if ! grep -Eq '^HOOKS=.*\bresume\b' "$mkinitcpio_conf"; then
+  sudo cp -a "$mkinitcpio_conf" "$mkinitcpio_conf.$(date +%Y%m%d%H%M%S).bak"
+  if grep -Eq '^HOOKS=.*\bencrypt\b' "$mkinitcpio_conf"; then
+    sudo sed -i -E 's/^(HOOKS=\([^)]*\bencrypt)([[:space:]])/\1 resume\2/' "$mkinitcpio_conf"
+  else
+    sudo sed -i -E 's/^(HOOKS=\([^)]*)([[:space:]]filesystems\b)/\1 resume\2/' "$mkinitcpio_conf"
+  fi
+fi
+
+resume_device="$(findmnt -no SOURCE -T "$swapfile")"
+resume_offset="$(sudo filefrag -v "$swapfile" | awk '$1 == "0:" { print $4; exit }' | sed 's/\\.\\.//')"
+
+if [ -z "$resume_device" ] || [ -z "$resume_offset" ]; then
+  echo "Could not determine resume device or swapfile offset." >&2
+  exit 1
+fi
+
+if [ -d /boot/loader/entries ]; then
+  shopt -s nullglob
+  for entry in /boot/loader/entries/*.conf; do
+    if grep -q '^options ' "$entry"; then
+      sudo sed -i -E \
+        -e 's/[[:space:]]resume=[^[:space:]]+//g' \
+        -e 's/[[:space:]]resume_offset=[^[:space:]]+//g' \
+        "$entry"
+      sudo sed -i -E "s#^options (.*)#options \1 resume=$resume_device resume_offset=$resume_offset#" "$entry"
+    fi
+  done
+else
+  echo "No systemd-boot loader entries found under /boot/loader/entries." >&2
+  exit 1
+fi
+
+sudo mkinitcpio -P
+{{ end -}}
