@@ -16,6 +16,18 @@ Updates:
 chezmoi update
 ```
 
+Package sync:
+
+```bash
+./package-sync.sh install --profile minipc
+./package-sync.sh diff --profile minipc
+./package-sync.sh clean --dry-run --profile minipc
+```
+
+`clean` is report-only unless `--confirm` is passed. It compares explicitly
+installed packages against the managed set, so package-manager dependencies are
+not treated as removable extras.
+
 When editing on this machine, work from the chezmoi source:
 
 ```bash

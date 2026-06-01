@@ -19,12 +19,31 @@ info() { echo -e "${GREEN}[INFO]${NC} $*"; }
 warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
 error() { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
 
+load_package_sets() {
+    local script_dir package_sets_url
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+    if [ -f "$script_dir/package-sets.sh" ]; then
+        # shellcheck source=package-sets.sh
+        source "$script_dir/package-sets.sh"
+        return
+    fi
+
+    package_sets_url="https://raw.githubusercontent.com/jkingston/dotfiles/main/package-sets.sh"
+    if command -v curl >/dev/null 2>&1; then
+        # shellcheck source=/dev/null
+        source <(curl -fsSL "$package_sets_url")
+        return
+    fi
+
+    error "package-sets.sh not found beside install.sh and curl is unavailable"
+}
+
+load_package_sets
+
 # --- Machine profiles ---
 PROFILES=(framework12 minipc)
 
 load_profile() {
-    PROFILE_PACKAGES=()
-
     case "$1" in
         framework12)
             HOSTNAME="fw12"
@@ -39,7 +58,6 @@ load_profile() {
             PROFILE_DISK="/dev/nvme0n1"
             USE_LUKS=true
             MICROCODE="intel-ucode"
-            PROFILE_PACKAGES=(intel-media-driver fwupd upower iio-sensor-proxy power-profiles-daemon)
             ;;
         minipc)
             HOSTNAME="minipc"
@@ -143,44 +161,8 @@ mount "$ROOT_DEV" /mnt
 mount --mkdir -o fmask=0077,dmask=0077 "$PART1" /mnt/boot
 
 # --- Package lists ---
-COMMON_PACKAGES=(
-    base linux linux-firmware "$MICROCODE"
-    mkinitcpio iptables-nft
-    networkmanager bluez bluez-utils
-    git neovim sudo base-devel chezmoi
-    flatpak
-    plymouth
-    pipewire pipewire-alsa pipewire-pulse pipewire-jack wireplumber
-    # Terminal & tools
-    ghostty starship fzf zoxide bat eza
-    btop ripgrep fd jq tree unzip ncdu duf procs tldr git-delta
-    github-cli direnv mise lazygit lazydocker openssh rbw rofi-rbw wtype gum
-    # Fonts
-    ttf-jetbrains-mono-nerd ttf-cascadia-code-nerd noto-fonts noto-fonts-emoji
-    # Misc
-    ufw pacman-contrib bc libnotify
-)
-
-HYPRLAND_PACKAGES=(
-    hyprland xdg-desktop-portal-hyprland xdg-desktop-portal-gtk
-    uwsm waybar mako hyprlock hypridle awww
-    rofi-wayland rofimoji wl-clipboard cliphist
-    grim slurp swappy hyprpicker
-    playerctl brightnessctl
-    greetd greetd-tuigreet
-    nautilus
-    swayosd bluetui pulsemixer rofi-calc hyprsunset impala
-)
-
-BASE_PACKAGES=("${COMMON_PACKAGES[@]}" "${HYPRLAND_PACKAGES[@]}")
-
-# Add extra packages for this profile
-BASE_PACKAGES+=("${PROFILE_PACKAGES[@]}")
-
-FLATPAK_PACKAGES=(
-    app.zen_browser.zen
-    org.localsend.localsend_app
-)
+mapfile -t BASE_PACKAGES < <(arch_repo_packages "$PROFILE" "$MICROCODE")
+FLATPAK_PACKAGES=("${ARCH_FLATPAK_PACKAGES[@]}")
 
 info "Installing base system (this will take a while)..."
 pacstrap -K /mnt "${BASE_PACKAGES[@]}"
@@ -327,7 +309,7 @@ cleanup_temp_aur() {
 }
 trap cleanup_temp_aur EXIT
 
-AUR_PACKAGES="grimblast-git waypaper wvkbd rofi-power-menu catppuccin-gtk-theme-mocha sunwait"
+AUR_PACKAGES="${ARCH_AUR_PACKAGES[*]}"
 
 arch-chroot /mnt su - "$USERNAME" -c "
 cd /tmp

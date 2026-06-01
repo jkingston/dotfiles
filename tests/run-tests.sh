@@ -353,6 +353,48 @@ printf "systemctl %s\n" "$*" >> "$FAKE_LOG"
   make_fake_bin loginctl '#!/usr/bin/env bash
 printf "loginctl %s\n" "$*" >> "$FAKE_LOG"
 '
+  make_fake_bin sudo '#!/usr/bin/env bash
+printf "sudo %s\n" "$*" >> "$FAKE_LOG"
+"$@"
+'
+  make_fake_bin pacman '#!/usr/bin/env bash
+printf "pacman %s\n" "$*" >> "$FAKE_LOG"
+case "$*" in
+  "-Q ghostty"|"-Q grimblast-git"|"-Q app.zen_browser.zen") exit 0 ;;
+  "-Qqet") printf "%s\n" ghostty extra-native catppuccin-gtk-theme-mocha extra-aur; exit 0 ;;
+  "-Qqm") printf "%s\n" catppuccin-gtk-theme-mocha extra-aur; exit 0 ;;
+esac
+if [ "${1:-}" = "-Syu" ] || [ "${1:-}" = "-Rns" ]; then
+  exit 0
+fi
+exit 1
+'
+  make_fake_bin flatpak '#!/usr/bin/env bash
+printf "flatpak %s\n" "$*" >> "$FAKE_LOG"
+if [ "$*" = "list --system --app --columns=application" ]; then
+  printf "%s\n" app.zen_browser.zen org.extra.App
+fi
+'
+  make_fake_bin brew '#!/usr/bin/env bash
+printf "brew %s\n" "$*" >> "$FAKE_LOG"
+case "${1:-}" in
+  list)
+    case "${3:-}" in
+      git|neovim) exit 0 ;;
+    esac
+    exit 1
+    ;;
+  leaves)
+    printf "%s\n" git extra-brew
+    ;;
+esac
+'
+  make_fake_bin uname '#!/usr/bin/env bash
+printf "%s\n" "${FAKE_UNAME:-Linux}"
+'
+  make_fake_bin hostname '#!/usr/bin/env bash
+printf "%s\n" "${FAKE_HOSTNAME:-minipc}"
+'
 
   export HOME="$TEST_HOME"
   export PATH="$FAKE_BIN:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin"
@@ -1044,14 +1086,14 @@ test_chezmoi_workflow_contract() {
 }
 
 test_flatpak_package_contract() {
-  assert_repo_contains install.sh 'app.zen_browser.zen' &&
-    assert_repo_contains install.sh 'org.localsend.localsend_app' &&
+  assert_repo_contains package-sets.sh 'app.zen_browser.zen' &&
+    assert_repo_contains package-sets.sh 'org.localsend.localsend_app' &&
     assert_repo_contains DESKTOPS.md 'org.localsend.localsend_app' &&
-    ! grep -F 'com.bitwarden.desktop' "$ROOT_DIR/install.sh" >/dev/null 2>&1
+    ! grep -F 'com.bitwarden.desktop' "$ROOT_DIR/package-sets.sh" >/dev/null 2>&1
 }
 
 test_rbw_package_contract() {
-  assert_repo_contains install.sh 'openssh rbw rofi-rbw wtype gum' &&
+  assert_repo_contains package-sets.sh 'github-cli direnv mise lazygit lazydocker openssh rbw rofi-rbw wtype gum' &&
     assert_repo_contains DESKTOPS.md 'pacman -Q openssh rbw rofi-rbw wtype gum' &&
     assert_repo_contains dot_bashrc 'SSH_AUTH_SOCK="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/rbw/ssh-agent-socket"' &&
     assert_repo_contains dot_config/environment.d/rbw-ssh-agent.conf 'SSH_AUTH_SOCK=${XDG_RUNTIME_DIR}/rbw/ssh-agent-socket' &&
@@ -1066,6 +1108,54 @@ test_rbw_package_contract() {
     assert_repo_contains dot_local/bin/executable_rbw-menu 'rbw config set base_url "$url"' &&
     assert_repo_contains dot_local/bin/executable_rbw-menu 'rbw config unset base_url' &&
     assert_repo_contains dot_local/lib/rbw-clipboard/executable_wl-copy '--sensitive'
+}
+
+test_package_inventory_contract() {
+  assert_repo_contains package-sets.sh 'ARCH_COMMON_PACKAGES=' &&
+    assert_repo_contains package-sets.sh 'ARCH_HYPRLAND_PACKAGES=' &&
+    assert_repo_contains package-sets.sh 'ARCH_PROFILE_FRAMEWORK12_PACKAGES=' &&
+    assert_repo_contains package-sets.sh 'ARCH_AUR_PACKAGES=' &&
+    assert_repo_contains package-sets.sh 'ARCH_FLATPAK_PACKAGES=' &&
+    assert_repo_contains package-sets.sh 'MACOS_BREW_PACKAGES=' &&
+    assert_repo_contains install.sh 'load_package_sets' &&
+    assert_repo_contains install.sh 'mapfile -t BASE_PACKAGES < <(arch_repo_packages "$PROFILE" "$MICROCODE")' &&
+    assert_repo_contains package-sync.sh 'clean --dry-run' &&
+    assert_repo_contains package-sync.sh 'pacman -Qqet' &&
+    assert_repo_contains package-sync.sh 'brew leaves'
+}
+
+test_package_sync_arch_install_uses_shared_sets() {
+  bash "$ROOT_DIR/package-sync.sh" install --profile minipc &&
+    assert_log_contains "sudo pacman -Syu --needed --noconfirm" &&
+    assert_log_contains "pacman -Syu --needed --noconfirm" &&
+    assert_log_contains "amd-ucode" &&
+    assert_log_contains "hyprland" &&
+    assert_log_contains "yay -S --needed --noconfirm grimblast-git waypaper wvkbd rofi-power-menu catppuccin-gtk-theme-mocha sunwait" &&
+    assert_log_contains "flatpak install --system -y flathub app.zen_browser.zen org.localsend.localsend_app"
+}
+
+test_package_sync_arch_clean_dry_run_reports_only() {
+  bash "$ROOT_DIR/package-sync.sh" clean --dry-run --profile minipc >"$TEST_TMP/stdout" 2>"$TEST_TMP/stderr" &&
+    grep -F 'extra-native' "$TEST_TMP/stdout" >/dev/null &&
+    grep -F 'extra-aur' "$TEST_TMP/stdout" >/dev/null &&
+    grep -F 'org.extra.App' "$TEST_TMP/stdout" >/dev/null &&
+    assert_log_not_contains "pacman -Rns" &&
+    assert_log_not_contains "yay -Rns" &&
+    assert_log_not_contains "flatpak uninstall"
+}
+
+test_package_sync_arch_clean_confirm_removes_extras() {
+  bash "$ROOT_DIR/package-sync.sh" clean --confirm --profile minipc >"$TEST_TMP/stdout" 2>"$TEST_TMP/stderr" &&
+    assert_log_contains "sudo pacman -Rns --noconfirm extra-native" &&
+    assert_log_contains "yay -Rns --noconfirm extra-aur" &&
+    assert_log_contains "flatpak uninstall --system -y org.extra.App"
+}
+
+test_package_sync_macos_install_uses_homebrew_cli_set() {
+  FAKE_UNAME=Darwin bash "$ROOT_DIR/package-sync.sh" install &&
+    assert_log_contains "brew install git neovim starship fzf zoxide bat eza btop ripgrep fd jq tree unzip ncdu duf procs tldr git-delta gh direnv mise lazygit lazydocker openssh gum chezmoi" &&
+    assert_log_not_contains "pacman -Syu" &&
+    assert_log_not_contains "flatpak install"
 }
 
 test_ssh_hosts_contract() {
@@ -1137,6 +1227,11 @@ run_unit_tests() {
   run_case "chezmoi: idiomatic workflow and installer contract" test_chezmoi_workflow_contract
   run_case "flatpak: package install contract" test_flatpak_package_contract
   run_case "rbw: package and config contract" test_rbw_package_contract
+  run_case "packages: shared inventory contract" test_package_inventory_contract
+  run_case "packages: Arch install uses shared sets" test_package_sync_arch_install_uses_shared_sets
+  run_case "packages: Arch clean dry-run reports only" test_package_sync_arch_clean_dry_run_reports_only
+  run_case "packages: Arch clean confirm removes extras" test_package_sync_arch_clean_confirm_removes_extras
+  run_case "packages: macOS install uses Homebrew CLI set" test_package_sync_macos_install_uses_homebrew_cli_set
   run_case "ssh hosts: package and config contract" test_ssh_hosts_contract
   run_case "ssh hosts: template is valid JSON" test_ssh_hosts_template_is_valid
 }

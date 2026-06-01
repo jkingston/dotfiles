@@ -4,6 +4,9 @@ This repo supports one graphical desktop: Hyprland. Common packages provide the
 base system and personal workflow tools; Hyprland packages provide the graphical
 session, login flow, applets, and desktop-specific controls.
 
+The canonical package inventory lives in `package-sets.sh`. Keep installer,
+sync, and documentation changes aligned with that file.
+
 ## Rules
 
 1. Keep personal workflow tools common.
