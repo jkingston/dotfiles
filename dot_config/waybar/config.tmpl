@@ -1,9 +1,23 @@
+{{- $tablet_mode_enabled := false -}}
+{{- if hasKey . "tablet_mode_enabled" -}}
+{{- $tablet_mode_enabled = index . "tablet_mode_enabled" -}}
+{{- else if .is_laptop -}}
+{{- $tablet_mode_enabled = true -}}
+{{- end -}}
 {
   "layer": "top",
   "position": "top",
   "height": 26,
   "spacing": 0,
-  "modules-left": ["custom/launcher", "hyprland/workspaces"],
+  "modules-left": [
+    "custom/launcher",
+    "hyprland/workspaces"
+{{- if and .is_laptop $tablet_mode_enabled }},
+    "custom/tablet-mode",
+    "custom/osk",
+    "custom/rotation"
+{{- end }}
+  ],
   "modules-center": ["clock", "custom/updates"],
   "modules-right": [
     "privacy",
@@ -24,8 +38,31 @@
   ],
   "custom/launcher": {
     "format": "󱄅",
-    "on-click": "rofi -show drun",
+    "on-click": "~/.local/bin/app-launcher",
     "tooltip": false
+  },
+  "custom/tablet-mode": {
+    "exec": "~/.local/bin/fw12-tablet-mode status",
+    "return-type": "json",
+    "interval": 30,
+    "signal": 13,
+    "on-click": "~/.local/bin/fw12-tablet-mode tablet",
+    "on-click-right": "~/.local/bin/fw12-tablet-mode laptop",
+    "tooltip": true
+  },
+  "custom/osk": {
+    "format": "󰌌",
+    "on-click": "~/.local/bin/osk-toggle",
+    "tooltip": true,
+    "tooltip-format": "On-screen keyboard"
+  },
+  "custom/rotation": {
+    "exec": "~/.local/bin/fw12-tablet-mode rotation-status",
+    "return-type": "json",
+    "interval": 30,
+    "signal": 14,
+    "on-click": "~/.local/bin/fw12-tablet-mode toggle-rotation",
+    "tooltip": true
   },
   "hyprland/workspaces": {
     "on-click": "activate",

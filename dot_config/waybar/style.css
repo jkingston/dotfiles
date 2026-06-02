@@ -33,7 +33,7 @@ window#waybar {
 
 #custom-battery, #pulseaudio, #power-profiles-daemon, #custom-launcher,
 #custom-nightlight, #custom-sysmon, #custom-updates, #idle_inhibitor,
-#backlight, #privacy {
+#custom-tablet-mode, #custom-osk, #custom-rotation, #backlight, #privacy {
   min-width: 12px;
   margin: 0 7.5px;
 }
@@ -53,6 +53,9 @@ window#waybar {
 #custom-battery.critical { color: #f38ba8; }
 #custom-battery.charging { color: #a6e3a1; }
 #idle_inhibitor.activated { color: #f9e2af; }
+#custom-tablet-mode.tablet { color: #a6e3a1; }
+#custom-tablet-mode.laptop { opacity: 0.85; }
+#custom-rotation.locked { color: #f9e2af; }
 
 tooltip {
   padding: 2px;

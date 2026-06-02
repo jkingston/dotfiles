@@ -25,18 +25,18 @@ ARCH_HYPRLAND_PACKAGES=(
     playerctl brightnessctl
     greetd greetd-tuigreet
     nautilus
-    swayosd bluetui pulsemixer rofi-calc hyprsunset impala
+    swayosd bluetui pulsemixer rofi-calc hyprsunset impala nwg-drawer
 )
 
 ARCH_PROFILE_FRAMEWORK12_PACKAGES=(
     intel-media-driver intel-gpu-tools fwupd upower iio-sensor-proxy
-    tuned tuned-ppd powertop usbutils sysstat
+    tuned tuned-ppd powertop usbutils sysstat framework-system
 )
 
 ARCH_PROFILE_MINIPC_PACKAGES=()
 
 ARCH_AUR_PACKAGES=(
-    grimblast-git waypaper wvkbd rofi-power-menu catppuccin-gtk-theme-mocha sunwait
+    grimblast-git waypaper wvkbd rofi-power-menu catppuccin-gtk-theme-mocha sunwait iio-hyprland-git
 )
 
 ARCH_FLATPAK_PACKAGES=(

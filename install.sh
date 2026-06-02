@@ -54,6 +54,10 @@ load_profile() {
             GAPS_INNER=3
             GAPS_OUTER=5
             BORDER=2
+            TABLET_MODE_ENABLED=true
+            TABLET_DISPLAY="eDP-1"
+            TABLET_SWITCH_NAME="Tablet Mode Switch"
+            TABLET_DISABLE_DEVICES=""
             GPU="intel"
             PROFILE_DISK="/dev/nvme0n1"
             USE_LUKS=true
@@ -68,6 +72,10 @@ load_profile() {
             GAPS_INNER=5
             GAPS_OUTER=10
             BORDER=2
+            TABLET_MODE_ENABLED=false
+            TABLET_DISPLAY=""
+            TABLET_SWITCH_NAME=""
+            TABLET_DISABLE_DEVICES=""
             GPU="amd"
             PROFILE_DISK="/dev/nvme0n1"
             USE_LUKS=true
@@ -395,6 +403,10 @@ arch-chroot /mnt su - "$USERNAME" -c "CHEZMOI_SKIP_SYSTEM_POWER=1 chezmoi init -
     --promptInt 'gaps_inner=$GAPS_INNER' \
     --promptInt 'gaps_outer=$GAPS_OUTER' \
     --promptInt 'border_size=$BORDER' \
+    --promptBool 'tablet_mode_enabled=$TABLET_MODE_ENABLED' \
+    --promptString 'tablet_display (e.g. eDP-1)=$TABLET_DISPLAY' \
+    --promptString 'tablet_switch_name (e.g. Tablet Mode Switch)=$TABLET_SWITCH_NAME' \
+    --promptString 'tablet_disable_devices (space-separated hyprctl device names)=$TABLET_DISABLE_DEVICES' \
     $CHEZMOI_INIT_REPO"
 
 # Fix ownership

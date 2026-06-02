@@ -1,3 +1,23 @@
+{{- $tablet_mode_enabled := false -}}
+{{- if hasKey . "tablet_mode_enabled" -}}
+{{- $tablet_mode_enabled = index . "tablet_mode_enabled" -}}
+{{- else if .is_laptop -}}
+{{- $tablet_mode_enabled = true -}}
+{{- end -}}
+{{- $tablet_display := "eDP-1" -}}
+{{- if and (hasKey . "tablet_display") (ne (index . "tablet_display") "") -}}
+{{- $tablet_display = index . "tablet_display" -}}
+{{- else if ne .monitor_name "" -}}
+{{- $tablet_display = .monitor_name -}}
+{{- end -}}
+{{- $tablet_switch_name := "Tablet Mode Switch" -}}
+{{- if and (hasKey . "tablet_switch_name") (ne (index . "tablet_switch_name") "") -}}
+{{- $tablet_switch_name = index . "tablet_switch_name" -}}
+{{- end -}}
+{{- $tablet_disable_devices := "" -}}
+{{- if hasKey . "tablet_disable_devices" -}}
+{{- $tablet_disable_devices = index . "tablet_disable_devices" -}}
+{{- end -}}
 # Monitor
 {{ if eq .monitor_name "" -}}
 monitor = , preferred, auto, {{ .monitor_scale }}
@@ -28,12 +48,25 @@ input {
         clickfinger_behavior = true
         tap-to-click = true
     }
+{{- if and .is_laptop $tablet_mode_enabled }}
+    touchdevice {
+        enabled = false
+        output = {{ $tablet_display }}
+    }
+    tablet {
+        output = {{ $tablet_display }}
+    }
+{{- end }}
 }
 
 gesture = 3, horizontal, workspace
 
 gestures {
     workspace_swipe_forever = true
+{{- if and .is_laptop $tablet_mode_enabled }}
+    workspace_swipe_touch = true
+    workspace_swipe_distance = 450
+{{- end }}
 }
 
 $mod = SUPER
@@ -56,10 +89,13 @@ exec-once = hypridle
 {{- end }}
 exec-once = ~/.local/bin/hyprsunset-apply
 exec-once = ~/.local/bin/wallpaper-random
+{{- if and .is_laptop $tablet_mode_enabled }}
+exec-once = FW12_TABLET_DISPLAY={{ $tablet_display }} FW12_TABLET_DISABLE_DEVICES='{{ $tablet_disable_devices }}' ~/.local/bin/fw12-tablet-mode laptop
+{{- end }}
 
 # App launchers
 bind = $mod, RETURN, exec, uwsm app -- ghostty
-bind = $mod, SPACE, exec, uwsm app -- rofi -show drun
+bind = $mod, SPACE, exec, uwsm app -- ~/.local/bin/app-launcher
 bind = $mod_shift, B, exec, uwsm app -- flatpak run app.zen_browser.zen
 bind = $mod_shift, N, exec, uwsm app -- ghostty -e nvim
 bind = $mod_shift, T, exec, uwsm app -- ghostty -e btop
@@ -157,6 +193,12 @@ bind = $mod_ctrl, W, exec, uwsm app -- waypaper
 bind = $mod_alt, W, exec, ~/.local/bin/wallpaper-random
 bind = $mod, slash, exec, ~/.local/bin/keybind-help
 bind = $mod, ESCAPE, exec, uwsm app -- ~/.local/bin/hypr-power-menu
+{{- if and .is_laptop $tablet_mode_enabled }}
+bind = $mod_alt, K, exec, FW12_TABLET_DISPLAY={{ $tablet_display }} ~/.local/bin/osk-toggle
+bind = $mod_alt, R, exec, FW12_TABLET_DISPLAY={{ $tablet_display }} FW12_TABLET_DISABLE_DEVICES='{{ $tablet_disable_devices }}' ~/.local/bin/fw12-tablet-mode toggle-rotation
+bind = $mod_alt, T, exec, FW12_TABLET_DISPLAY={{ $tablet_display }} FW12_TABLET_DISABLE_DEVICES='{{ $tablet_disable_devices }}' ~/.local/bin/fw12-tablet-mode tablet
+bind = $mod_alt, Y, exec, FW12_TABLET_DISPLAY={{ $tablet_display }} FW12_TABLET_DISABLE_DEVICES='{{ $tablet_disable_devices }}' ~/.local/bin/fw12-tablet-mode laptop
+{{- end }}
 
 # Mouse
 bind = $mod, MOUSE_DOWN, workspace, e+1
@@ -180,6 +222,11 @@ bindl = , XF86AudioPause, exec, playerctl play-pause
 # Lid switch
 bindl = , switch:on:Lid Switch, exec, loginctl lock-session
 bindl = , switch:off:Lid Switch, exec, hyprctl dispatch dpms on
+{{- if $tablet_mode_enabled }}
+# Tablet mode switch
+bindl = , switch:on:{{ $tablet_switch_name }}, exec, FW12_TABLET_DISPLAY={{ $tablet_display }} FW12_TABLET_DISABLE_DEVICES='{{ $tablet_disable_devices }}' ~/.local/bin/fw12-tablet-mode tablet
+bindl = , switch:off:{{ $tablet_switch_name }}, exec, FW12_TABLET_DISPLAY={{ $tablet_display }} FW12_TABLET_DISABLE_DEVICES='{{ $tablet_disable_devices }}' ~/.local/bin/fw12-tablet-mode laptop
+{{- end }}
 {{- end }}
 
 # Appearance

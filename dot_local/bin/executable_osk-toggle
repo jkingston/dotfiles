@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
-if pgrep -x wvkbd-mobintl >/dev/null; then
-  pkill -x wvkbd-mobintl
-else
-  wvkbd-mobintl --landscape --opacity 0.98 --rounding 10 --hidden &
+set -euo pipefail
+
+OSK_BIN="${FW12_OSK_BIN:-wvkbd-mobintl}"
+read -r -a OSK_ARGS <<<"${FW12_OSK_ARGS:---landscape --opacity 0.98 --rounding 10 --hidden}"
+
+command -v "$OSK_BIN" >/dev/null 2>&1 || exit 0
+
+if ! pgrep -x "$OSK_BIN" >/dev/null; then
+  "$OSK_BIN" "${OSK_ARGS[@]}" >/dev/null 2>&1 &
+  sleep 0.15
 fi
+
+pkill -SIGRTMIN -x "$OSK_BIN" 2>/dev/null || true

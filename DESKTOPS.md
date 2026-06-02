@@ -48,13 +48,13 @@ grim slurp swappy hyprpicker
 playerctl brightnessctl
 greetd greetd-tuigreet
 nautilus
-swayosd bluetui pulsemixer rofi-calc hyprsunset impala
+swayosd bluetui pulsemixer rofi-calc hyprsunset impala nwg-drawer
 ```
 
 Hyprland-specific AUR packages:
 
 ```bash
-grimblast-git waypaper wvkbd rofi-power-menu catppuccin-gtk-theme-mocha sunwait
+grimblast-git waypaper wvkbd rofi-power-menu catppuccin-gtk-theme-mocha sunwait iio-hyprland-git
 ```
 
 Flatpak apps:
