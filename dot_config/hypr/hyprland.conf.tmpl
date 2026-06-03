@@ -10,7 +10,7 @@
 {{- else if ne .monitor_name "" -}}
 {{- $tablet_display = .monitor_name -}}
 {{- end -}}
-{{- $tablet_switch_name := "Tablet Mode Switch" -}}
+{{- $tablet_switch_name := "gpio-keys" -}}
 {{- if and (hasKey . "tablet_switch_name") (ne (index . "tablet_switch_name") "") -}}
 {{- $tablet_switch_name = index . "tablet_switch_name" -}}
 {{- end -}}

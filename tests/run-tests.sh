@@ -1175,7 +1175,7 @@ test_chezmoi_workflow_contract() {
     assert_repo_contains install.sh "--promptInt 'border_size=\$BORDER'" &&
     assert_repo_contains install.sh "--promptBool 'tablet_mode_enabled=\$TABLET_MODE_ENABLED'" &&
     assert_repo_contains install.sh "--promptString 'tablet_disable_devices (space-separated hyprctl device names)=\$TABLET_DISABLE_DEVICES'" &&
-    assert_repo_contains .chezmoi.toml.tmpl 'tablet_switch_name = {{ promptString "tablet_switch_name (e.g. Tablet Mode Switch)" | quote }}'
+    assert_repo_contains .chezmoi.toml.tmpl 'tablet_switch_name = {{ promptString "tablet_switch_name (e.g. gpio-keys)" | quote }}'
 }
 
 test_flatpak_package_contract() {
