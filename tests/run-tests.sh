@@ -792,14 +792,14 @@ test_sysmon_emits_waybar_json() {
 test_osk_toggle_starts_when_absent() {
   run_script dot_local/bin/executable_osk-toggle &&
     assert_log_contains "pgrep -x wvkbd-mobintl" &&
-    assert_log_contains "wvkbd-mobintl --landscape --opacity 0.98 --rounding 10 --hidden" &&
-    assert_log_contains "pkill -SIGRTMIN -x wvkbd-mobintl"
+    assert_log_contains "wvkbd-mobintl -L 240 -H 360 -R 10 --alpha 250 --hidden" &&
+    assert_log_contains "pkill -SIGUSR2 -x wvkbd-mobintl"
 }
 
 test_osk_toggle_signals_when_present() {
   export FAKE_PGREP_MATCH=wvkbd-mobintl
   run_script dot_local/bin/executable_osk-toggle &&
-    assert_log_not_contains "wvkbd-mobintl --landscape --opacity 0.98 --rounding 10 --hidden" &&
+    assert_log_not_contains "wvkbd-mobintl -L 240 -H 360 -R 10 --alpha 250 --hidden" &&
     assert_log_contains "pkill -SIGRTMIN -x wvkbd-mobintl"
 }
 
@@ -813,7 +813,7 @@ test_tablet_mode_enters_tablet_state() {
     [ "$(cat "$HOME/.local/state/fw12-tablet-mode/mode")" = "tablet" ] &&
     assert_log_contains "hyprctl --batch keyword input:touchdevice:enabled true" &&
     assert_log_contains "hyprctl --batch keyword device[framework-keyboard]:enabled false" &&
-    assert_log_contains "wvkbd-mobintl --landscape --opacity 0.98 --rounding 10 --hidden" &&
+    assert_log_contains "wvkbd-mobintl -L 240 -H 360 -R 10 --alpha 250 --hidden" &&
     assert_log_contains "pkill -SIGUSR2 -x wvkbd-mobintl" &&
     assert_log_contains "iio-hyprland --transform 0,1,2,3 eDP-1" &&
     assert_log_contains "pkill -SIGRTMIN+13 waybar" &&

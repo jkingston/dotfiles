@@ -9,7 +9,8 @@ DEFAULT_DISPLAY="${FW12_TABLET_DISPLAY:-eDP-1}"
 DEFAULT_TRANSFORMS="${FW12_TABLET_TRANSFORMS:-0,1,2,3}"
 DISABLE_DEVICES="${FW12_TABLET_DISABLE_DEVICES:-}"
 OSK_BIN="${FW12_OSK_BIN:-wvkbd-mobintl}"
-read -r -a OSK_ARGS <<<"${FW12_OSK_ARGS:---landscape --opacity 0.98 --rounding 10 --hidden}"
+read -r -a OSK_ARGS <<<"${FW12_OSK_ARGS:--L 240 -H 360 -R 10 --alpha 250 --hidden}"
+OSK_STARTUP_DELAY="${FW12_OSK_STARTUP_DELAY:-0.75}"
 
 mkdir -p "$STATE_DIR"
 
@@ -81,8 +82,12 @@ osk_running() {
 osk_start() {
   command -v "$OSK_BIN" >/dev/null 2>&1 || return 0
   if ! osk_running; then
-    "$OSK_BIN" "${OSK_ARGS[@]}" >/dev/null 2>&1 &
-    sleep 0.15
+    nohup "$OSK_BIN" "${OSK_ARGS[@]}" >/dev/null 2>&1 &
+    for _ in 1 2 3 4 5; do
+      osk_running && break
+      sleep 0.1
+    done
+    sleep "$OSK_STARTUP_DELAY"
   fi
 }
 
