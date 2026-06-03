@@ -6,14 +6,10 @@
     is_vm = {{ promptBool "is_vm" }}
     gpu = {{ promptString "gpu (intel, amd, or none)" | quote }}
     monitor_name = {{ promptString "monitor_name (e.g. eDP-1, DP-1)" | quote }}
-    monitor_scale = {{ promptString "monitor_scale (e.g. 1.5)" | quote }}
+    monitor_scale = {{ promptString "monitor_scale (e.g. 1.25)" | quote }}
     gaps_inner = {{ promptInt "gaps_inner" }}
     gaps_outer = {{ promptInt "gaps_outer" }}
     border_size = {{ promptInt "border_size" }}
-    tablet_mode_enabled = {{ promptBool "tablet_mode_enabled" }}
-    tablet_display = {{ promptString "tablet_display (e.g. eDP-1)" | quote }}
-    tablet_switch_name = {{ promptString "tablet_switch_name (e.g. gpio-keys)" | quote }}
-    tablet_disable_devices = {{ promptString "tablet_disable_devices (space-separated hyprctl device names)" | quote }}
 {{ else -}}
     desktop = "none"
     hostname = {{ .chezmoi.hostname | quote }}

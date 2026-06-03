@@ -1,21 +1,6 @@
 #!/usr/bin/env bash
-set -euo pipefail
-
-OSK_BIN="${FW12_OSK_BIN:-wvkbd-mobintl}"
-read -r -a OSK_ARGS <<<"${FW12_OSK_ARGS:--L 240 -H 360 -R 10 --alpha 250 --hidden}"
-OSK_STARTUP_DELAY="${FW12_OSK_STARTUP_DELAY:-0.75}"
-
-command -v "$OSK_BIN" >/dev/null 2>&1 || exit 0
-
-if ! pgrep -x "$OSK_BIN" >/dev/null; then
-  nohup "$OSK_BIN" "${OSK_ARGS[@]}" >/dev/null 2>&1 &
-  for _ in 1 2 3 4 5; do
-    pgrep -x "$OSK_BIN" >/dev/null && break
-    sleep 0.1
-  done
-  sleep "$OSK_STARTUP_DELAY"
-  pkill -SIGUSR2 -x "$OSK_BIN" 2>/dev/null || true
-  exit 0
+if pgrep -x wvkbd-mobintl >/dev/null; then
+  pkill -x wvkbd-mobintl
+else
+  wvkbd-mobintl --landscape --opacity 0.98 --rounding 10 --hidden &
 fi
-
-pkill -SIGRTMIN -x "$OSK_BIN" 2>/dev/null || true

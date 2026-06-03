@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-set -euo pipefail
-
-if command -v nwg-drawer >/dev/null 2>&1; then
-  exec nwg-drawer
-fi
-
-exec rofi -show drun

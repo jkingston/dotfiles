@@ -273,12 +273,6 @@ sed -n "1p"
   make_fake_bin wvkbd-mobintl '#!/usr/bin/env bash
 printf "wvkbd-mobintl %s\n" "$*" >> "$FAKE_LOG"
 '
-  make_fake_bin iio-hyprland '#!/usr/bin/env bash
-printf "iio-hyprland %s\n" "$*" >> "$FAKE_LOG"
-'
-  make_fake_bin nwg-drawer '#!/usr/bin/env bash
-printf "nwg-drawer %s\n" "$*" >> "$FAKE_LOG"
-'
   make_fake_bin cliphist '#!/usr/bin/env bash
 printf "cliphist %s\n" "$*" >> "$FAKE_LOG"
 case "${1:-}" in
@@ -408,7 +402,6 @@ printf "%s\n" "${FAKE_HOSTNAME:-minipc}"
 '
 
   export HOME="$TEST_HOME"
-  export XDG_STATE_HOME="$TEST_HOME/.local/state"
   export PATH="$FAKE_BIN:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin"
   export FAKE_LOG ROFI_QUEUE
   unset FAKE_PKILL_FAIL_WAYBAR FAKE_PGREP_MATCH FAKE_PIDOF_MATCH FAKE_SUNWAIT_POLL FAKE_SUNWAIT_REPORT FAKE_TIME_DATE_CTL_FAIL FAKE_TIMEZONE FAKE_CHECKUPDATES FAKE_YAY_UPDATES FAKE_RBW_UNLOCKED FAKE_RBW_EMAIL FAKE_RBW_BASE_URL_JSON FAKE_RBW_MISSING_CONFIG FAKE_WL_PASTE RBW_MENU_FORCE_MISSING
@@ -792,59 +785,13 @@ test_sysmon_emits_waybar_json() {
 test_osk_toggle_starts_when_absent() {
   run_script dot_local/bin/executable_osk-toggle &&
     assert_log_contains "pgrep -x wvkbd-mobintl" &&
-    assert_log_contains "wvkbd-mobintl -L 240 -H 360 -R 10 --alpha 250 --hidden" &&
-    assert_log_contains "pkill -SIGUSR2 -x wvkbd-mobintl"
+    assert_log_contains "wvkbd-mobintl --landscape --opacity 0.98 --rounding 10 --hidden"
 }
 
-test_osk_toggle_signals_when_present() {
+test_osk_toggle_stops_when_present() {
   export FAKE_PGREP_MATCH=wvkbd-mobintl
   run_script dot_local/bin/executable_osk-toggle &&
-    assert_log_not_contains "wvkbd-mobintl -L 240 -H 360 -R 10 --alpha 250 --hidden" &&
-    assert_log_contains "pkill -SIGRTMIN -x wvkbd-mobintl"
-}
-
-test_app_launcher_prefers_touch_drawer() {
-  run_script dot_local/bin/executable_app-launcher &&
-    assert_log_contains "nwg-drawer"
-}
-
-test_tablet_mode_enters_tablet_state() {
-  FW12_TABLET_DISPLAY=eDP-1 FW12_TABLET_DISABLE_DEVICES=framework-keyboard bash "$ROOT_DIR/dot_local/bin/executable_fw12-tablet-mode" tablet &&
-    [ "$(cat "$HOME/.local/state/fw12-tablet-mode/mode")" = "tablet" ] &&
-    assert_log_contains "hyprctl --batch keyword input:touchdevice:enabled true" &&
-    assert_log_contains "hyprctl --batch keyword device[framework-keyboard]:enabled false" &&
-    assert_log_contains "wvkbd-mobintl -L 240 -H 360 -R 10 --alpha 250 --hidden" &&
-    assert_log_contains "pkill -SIGUSR2 -x wvkbd-mobintl" &&
-    assert_log_contains "iio-hyprland --transform 0,1,2,3 eDP-1" &&
-    assert_log_contains "pkill -SIGRTMIN+13 waybar" &&
-    assert_log_contains "notify-send -t 1500 Tablet mode Touch and on-screen keyboard enabled"
-}
-
-test_tablet_mode_returns_to_laptop_state() {
-  FW12_TABLET_DISPLAY=eDP-1 FW12_TABLET_DISABLE_DEVICES=framework-keyboard bash "$ROOT_DIR/dot_local/bin/executable_fw12-tablet-mode" laptop &&
-    [ "$(cat "$HOME/.local/state/fw12-tablet-mode/mode")" = "laptop" ] &&
-    assert_log_contains "hyprctl --batch keyword monitor eDP-1,preferred,auto,auto,transform,0" &&
-    assert_log_contains "pkill -SIGUSR1 -x wvkbd-mobintl" &&
-    assert_log_contains "hyprctl --batch keyword device[framework-keyboard]:enabled true" &&
-    assert_log_contains "hyprctl --batch keyword input:touchdevice:enabled false" &&
-    assert_log_contains "pkill -SIGRTMIN+14 waybar" &&
-    assert_log_contains "notify-send -t 1500 Laptop mode Touch disabled and rotation reset"
-}
-
-test_tablet_mode_rotation_lock_status() {
-  FW12_TABLET_DISPLAY=eDP-1 bash "$ROOT_DIR/dot_local/bin/executable_fw12-tablet-mode" toggle-rotation &&
-    [ -f "$HOME/.local/state/fw12-tablet-mode/rotation-locked" ] &&
-    assert_log_contains "hyprctl --batch keyword monitor eDP-1,preferred,auto,auto,transform,0" &&
-    assert_log_contains "notify-send -t 1500 Rotation locked" &&
-    bash "$ROOT_DIR/dot_local/bin/executable_fw12-tablet-mode" rotation-status > "$TEST_TMP/output.json" &&
-    jq -e '.class == "locked"' "$TEST_TMP/output.json" >/dev/null
-}
-
-test_tablet_mode_status_emits_waybar_json() {
-  mkdir -p "$HOME/.local/state/fw12-tablet-mode"
-  printf 'tablet\n' > "$HOME/.local/state/fw12-tablet-mode/mode"
-  bash "$ROOT_DIR/dot_local/bin/executable_fw12-tablet-mode" status > "$TEST_TMP/output.json" &&
-    jq -e '(.class | index("tablet")) and (.tooltip | contains("Tablet mode"))' "$TEST_TMP/output.json" >/dev/null
+    assert_log_contains "pkill -x wvkbd-mobintl"
 }
 
 test_wallpaper_random_applies_image() {
@@ -1053,7 +1000,7 @@ test_hyprland_autostart_contract() {
 }
 
 test_hyprland_keybind_contract() {
-  assert_repo_contains dot_config/hypr/hyprland.conf.tmpl 'bind = $mod, SPACE, exec, uwsm app -- ~/.local/bin/app-launcher' &&
+  assert_repo_contains dot_config/hypr/hyprland.conf.tmpl 'bind = $mod, SPACE, exec, uwsm app -- rofi -show drun' &&
     assert_repo_contains dot_config/hypr/hyprland.conf.tmpl 'bind = $mod_shift, B, exec, uwsm app -- flatpak run app.zen_browser.zen' &&
     assert_repo_contains dot_config/hypr/hyprland.conf.tmpl 'bind = $mod_ctrl, S, exec, uwsm app -- flatpak run org.localsend.localsend_app' &&
     assert_repo_contains dot_config/hypr/hyprland.conf.tmpl 'bind = $mod_shift, P, exec, uwsm app -- ~/.local/bin/rbw-menu' &&
@@ -1061,28 +1008,8 @@ test_hyprland_keybind_contract() {
     assert_repo_contains dot_config/hypr/hyprland.conf.tmpl 'bind = $mod_ctrl, V, exec, ~/.local/bin/rofi-clipboard' &&
     assert_repo_contains dot_config/hypr/hyprland.conf.tmpl 'bind = $mod_ctrl, I, exec, hyprlock' &&
     assert_repo_contains dot_config/hypr/hyprland.conf.tmpl 'bind = $mod, ESCAPE, exec, uwsm app -- ~/.local/bin/hypr-power-menu' &&
-    assert_repo_contains dot_config/hypr/hyprland.conf.tmpl 'bind = $mod_alt, K, exec, FW12_TABLET_DISPLAY={{ $tablet_display }} ~/.local/bin/osk-toggle' &&
-    assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "bind = \$mod_alt, R, exec, FW12_TABLET_DISPLAY={{ \$tablet_display }} FW12_TABLET_DISABLE_DEVICES='{{ \$tablet_disable_devices }}' ~/.local/bin/fw12-tablet-mode toggle-rotation" &&
     assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "bindel = , XF86MonBrightnessUp, exec, swayosd-client --brightness raise" &&
     assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "bindl = , switch:on:Lid Switch, exec, loginctl lock-session"
-}
-
-test_hyprland_tablet_mode_contract() {
-  assert_repo_contains dot_config/hypr/hyprland.conf.tmpl 'touchdevice {' &&
-    assert_repo_contains dot_config/hypr/hyprland.conf.tmpl 'enabled = false' &&
-    assert_repo_contains dot_config/hypr/hyprland.conf.tmpl 'workspace_swipe_touch = true' &&
-    assert_repo_contains dot_config/hypr/hyprland.conf.tmpl "FW12_TABLET_DISABLE_DEVICES='{{ \$tablet_disable_devices }}'" &&
-    assert_repo_contains dot_config/hypr/hyprland.conf.tmpl 'bindl = , switch:on:{{ $tablet_switch_name }}, exec, FW12_TABLET_DISPLAY={{ $tablet_display }}' &&
-    assert_repo_contains dot_config/hypr/hyprland.conf.tmpl 'bindl = , switch:off:{{ $tablet_switch_name }}, exec, FW12_TABLET_DISPLAY={{ $tablet_display }}'
-}
-
-test_framework12_tablet_mode_initramfs_contract() {
-  assert_repo_contains install.sh '/etc/mkinitcpio.conf.d/99-framework-12-tablet-mode.conf' &&
-    assert_repo_contains install.sh 'MODULES+=(pinctrl_tigerlake soc_button_array)' &&
-    assert_repo_contains run_onchange_after_configure-framework12-tablet-mode.sh.tmpl '/etc/mkinitcpio.conf.d/99-framework-12-tablet-mode.conf' &&
-    assert_repo_contains run_onchange_after_configure-framework12-tablet-mode.sh.tmpl 'MODULES+=(pinctrl_tigerlake soc_button_array)' &&
-    assert_repo_contains run_onchange_after_configure-framework12-tablet-mode.sh.tmpl 'sudo mkinitcpio -P' &&
-    assert_repo_contains run_onchange_after_configure-framework12-tablet-mode.sh.tmpl 'CHEZMOI_SKIP_SYSTEM_POWER'
 }
 
 test_hypridle_lock_sleep_contract() {
@@ -1105,9 +1032,6 @@ test_hyprlock_contract() {
 
 test_waybar_environment_modules_contract() {
   assert_repo_contains dot_config/waybar/config.tmpl "\"custom/launcher\"" &&
-    assert_repo_contains dot_config/waybar/config.tmpl "\"custom/tablet-mode\"" &&
-    assert_repo_contains dot_config/waybar/config.tmpl "\"custom/osk\"" &&
-    assert_repo_contains dot_config/waybar/config.tmpl "\"custom/rotation\"" &&
     assert_repo_contains dot_config/waybar/config.tmpl "\"custom/updates\"" &&
     assert_repo_contains dot_config/waybar/config.tmpl "\"custom/sysmon\"" &&
     assert_repo_contains dot_config/waybar/config.tmpl "\"idle_inhibitor\"" &&
@@ -1116,8 +1040,6 @@ test_waybar_environment_modules_contract() {
     assert_repo_contains dot_config/waybar/config.tmpl "\"on-click\": \"ghostty --class=com.floating.tui -e pulsemixer\"" &&
     assert_repo_contains dot_config/waybar/config.tmpl "\"on-click-right\": \"wpctl set-mute @DEFAULT_SINK@ toggle\"" &&
     assert_repo_contains dot_config/waybar/config.tmpl "\"on-click\": \"~/.local/bin/hypr-power-menu\"" &&
-    assert_repo_contains dot_config/waybar/config.tmpl "\"on-click\": \"~/.local/bin/osk-toggle\"" &&
-    assert_repo_contains dot_config/waybar/config.tmpl "\"on-click\": \"~/.local/bin/fw12-tablet-mode toggle-rotation\"" &&
     assert_repo_contains dot_config/waybar/config.tmpl "\"on-scroll-up\": \"swayosd-client --brightness raise\""
 }
 
@@ -1172,10 +1094,7 @@ test_chezmoi_workflow_contract() {
     assert_repo_contains install.sh "--promptString 'hostname=\$HOSTNAME'" &&
     assert_repo_contains install.sh "--promptBool 'is_laptop=\$IS_LAPTOP'" &&
     assert_repo_contains install.sh "--promptString 'gpu (intel, amd, or none)=\$GPU'" &&
-    assert_repo_contains install.sh "--promptInt 'border_size=\$BORDER'" &&
-    assert_repo_contains install.sh "--promptBool 'tablet_mode_enabled=\$TABLET_MODE_ENABLED'" &&
-    assert_repo_contains install.sh "--promptString 'tablet_disable_devices (space-separated hyprctl device names)=\$TABLET_DISABLE_DEVICES'" &&
-    assert_repo_contains .chezmoi.toml.tmpl 'tablet_switch_name = {{ promptString "tablet_switch_name (e.g. gpio-keys)" | quote }}'
+    assert_repo_contains install.sh "--promptInt 'border_size=\$BORDER'"
 }
 
 test_flatpak_package_contract() {
@@ -1223,8 +1142,7 @@ test_package_sync_arch_install_uses_shared_sets() {
     assert_log_contains "pacman -Syu --needed --noconfirm" &&
     assert_log_contains "amd-ucode" &&
     assert_log_contains "hyprland" &&
-    assert_log_contains "nwg-drawer" &&
-    assert_log_contains "yay -S --needed --noconfirm grimblast-git waypaper wvkbd rofi-power-menu catppuccin-gtk-theme-mocha sunwait iio-hyprland-git" &&
+    assert_log_contains "yay -S --needed --noconfirm grimblast-git waypaper wvkbd rofi-power-menu catppuccin-gtk-theme-mocha sunwait" &&
     assert_log_contains "flatpak install --system -y flathub app.zen_browser.zen org.localsend.localsend_app"
 }
 
@@ -1370,12 +1288,7 @@ run_hyprland_environment_tests() {
   run_case "updates menu: toggle enables auto-check" test_update_menu_toggle_enables_and_signals
   run_case "sysmon: emits Waybar JSON" test_sysmon_emits_waybar_json
   run_case "osk: starts when absent" test_osk_toggle_starts_when_absent
-  run_case "osk: signals when present" test_osk_toggle_signals_when_present
-  run_case "app launcher: prefers touch drawer" test_app_launcher_prefers_touch_drawer
-  run_case "tablet mode: enters tablet state" test_tablet_mode_enters_tablet_state
-  run_case "tablet mode: returns to laptop state" test_tablet_mode_returns_to_laptop_state
-  run_case "tablet mode: toggles rotation lock" test_tablet_mode_rotation_lock_status
-  run_case "tablet mode: emits Waybar JSON" test_tablet_mode_status_emits_waybar_json
+  run_case "osk: stops when present" test_osk_toggle_stops_when_present
   run_case "wallpaper: random image applies via awww" test_wallpaper_random_applies_image
   run_case "wallpaper: checkout runs after chezmoi apply" test_wallpaper_checkout_runs_after_chezmoi_apply
   run_case "clipboard: rofi selection is decoded to wl-copy" test_rofi_clipboard_decodes_to_wl_copy
@@ -1403,8 +1316,6 @@ run_hyprland_environment_tests() {
   run_case "power menu: escape does nothing" test_power_menu_escape_does_nothing
   run_case "hyprland: autostart contract" test_hyprland_autostart_contract
   run_case "hyprland: keybind contract" test_hyprland_keybind_contract
-  run_case "hyprland: tablet mode contract" test_hyprland_tablet_mode_contract
-  run_case "framework12: tablet mode initramfs contract" test_framework12_tablet_mode_initramfs_contract
   run_case "hypridle: lock/sleep contract" test_hypridle_lock_sleep_contract
   run_case "hyprlock: lock screen contract" test_hyprlock_contract
   run_case "waybar: environment modules contract" test_waybar_environment_modules_contract
