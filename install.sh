@@ -206,6 +206,13 @@ if [ '$USE_LUKS' = true ]; then
 else
     sed -i 's/^HOOKS=.*/HOOKS=(base udev plymouth autodetect microcode modconf kms keyboard keymap consolefont block filesystems fsck)/' /etc/mkinitcpio.conf
 fi
+if [ '$PROFILE' = 'framework12' ]; then
+    install -d -m 755 /etc/mkinitcpio.conf.d
+    cat > /etc/mkinitcpio.conf.d/99-framework-12-tablet-mode.conf <<'MKINITCPIO'
+# Force Framework Laptop 12 tablet-mode GPIO modules to load in order.
+MODULES+=(pinctrl_tigerlake soc_button_array)
+MKINITCPIO
+fi
 if [ '$IS_LAPTOP' = true ]; then
     fallocate -l 20480M /swapfile
     chmod 600 /swapfile

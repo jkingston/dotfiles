@@ -1076,6 +1076,15 @@ test_hyprland_tablet_mode_contract() {
     assert_repo_contains dot_config/hypr/hyprland.conf.tmpl 'bindl = , switch:off:{{ $tablet_switch_name }}, exec, FW12_TABLET_DISPLAY={{ $tablet_display }}'
 }
 
+test_framework12_tablet_mode_initramfs_contract() {
+  assert_repo_contains install.sh '/etc/mkinitcpio.conf.d/99-framework-12-tablet-mode.conf' &&
+    assert_repo_contains install.sh 'MODULES+=(pinctrl_tigerlake soc_button_array)' &&
+    assert_repo_contains run_onchange_after_configure-framework12-tablet-mode.sh.tmpl '/etc/mkinitcpio.conf.d/99-framework-12-tablet-mode.conf' &&
+    assert_repo_contains run_onchange_after_configure-framework12-tablet-mode.sh.tmpl 'MODULES+=(pinctrl_tigerlake soc_button_array)' &&
+    assert_repo_contains run_onchange_after_configure-framework12-tablet-mode.sh.tmpl 'sudo mkinitcpio -P' &&
+    assert_repo_contains run_onchange_after_configure-framework12-tablet-mode.sh.tmpl 'CHEZMOI_SKIP_SYSTEM_POWER'
+}
+
 test_hypridle_lock_sleep_contract() {
   assert_repo_contains dot_config/hypr/hypridle.conf "lock_cmd = pidof hyprlock || hyprlock" &&
     assert_repo_contains dot_config/hypr/hypridle.conf "before_sleep_cmd = pidof hyprlock || hyprlock &" &&
@@ -1395,6 +1404,7 @@ run_hyprland_environment_tests() {
   run_case "hyprland: autostart contract" test_hyprland_autostart_contract
   run_case "hyprland: keybind contract" test_hyprland_keybind_contract
   run_case "hyprland: tablet mode contract" test_hyprland_tablet_mode_contract
+  run_case "framework12: tablet mode initramfs contract" test_framework12_tablet_mode_initramfs_contract
   run_case "hypridle: lock/sleep contract" test_hypridle_lock_sleep_contract
   run_case "hyprlock: lock screen contract" test_hyprlock_contract
   run_case "waybar: environment modules contract" test_waybar_environment_modules_contract
